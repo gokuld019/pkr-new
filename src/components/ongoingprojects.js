@@ -3,11 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Geist } from "next/font/google";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useGSAP } from "@gsap/react";
 import {
   Home,
   BedDouble,
@@ -17,16 +13,10 @@ import {
   Phone,
 } from "lucide-react";
 
-gsap.registerPlugin(ScrollTrigger, useGSAP);
-
-const geist = Geist({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
-
 const DEEP_NAVY = "#0F3A6B";
 const DEEP_NAVY_HOVER = "#0A2B50";
 const TEXT_CHARCOAL = "#2D3A46";
+const TEXT_MUTED = "#475569";
 const LIGHT_BLUE = "#E8F0F9";
 const LIGHT_BLUE_RING = "rgba(15,58,107,0.10)";
 
@@ -46,7 +36,7 @@ const PROJECTS = [
     units: "90 Apartments",
     completion: "DEC 2026",
     completionDate: "2026-12-31T23:59:59",
-    image: "/guuruu.png",
+    image: "/guuruu.webp",
   },
   {
     id: 2,
@@ -63,7 +53,7 @@ const PROJECTS = [
     units: "186 Units",
     completion: "JUN 2027",
     completionDate: "2028-06-30T23:59:59",
-    image: "/uppriv.png",
+    image: "/uppriv.webp",
   },
 ];
 
@@ -95,101 +85,113 @@ function useCountdown(target) {
 export default function OurProjects() {
   const root = useRef(null);
 
-  useGSAP(
-    () => {
-      const tl = gsap.timeline({
-        defaults: { ease: "power3.out" },
-        scrollTrigger: { trigger: ".gs-head", start: "top 85%", once: true },
-      });
+  useEffect(() => {
+    const section = root.current;
+    if (!section) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-      tl.fromTo(
-        ".gs-eyebrow-text",
-        { opacity: 0, y: 10 },
-        { opacity: 1, y: 0, duration: 0.35, clearProps: "transform,opacity" }
-      )
-        .fromTo(
-          ".gs-title-word",
-          { yPercent: 110, opacity: 0 },
-          {
-            yPercent: 0,
-            opacity: 1,
-            duration: 0.55,
-            stagger: 0.06,
-            ease: "power4.out",
-            clearProps: "transform,opacity",
+    const observers = [];
+    const ctx = gsap.context(() => {
+      const head = section.querySelector(".gs-head");
+      if (head && typeof IntersectionObserver !== "undefined") {
+        const obs = new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((e) => e.isIntersecting)) return;
+            obs.disconnect();
+            const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+            tl.fromTo(
+              ".gs-eyebrow-text",
+              { opacity: 0, y: 10 },
+              { opacity: 1, y: 0, duration: 0.35, clearProps: "transform,opacity" }
+            )
+              .fromTo(
+                ".gs-title-word",
+                { yPercent: 110, opacity: 0 },
+                {
+                  yPercent: 0,
+                  opacity: 1,
+                  duration: 0.55,
+                  stagger: 0.06,
+                  ease: "power4.out",
+                  clearProps: "transform,opacity",
+                },
+                "-=0.2"
+              )
+              .fromTo(
+                ".gs-sub",
+                { y: 15, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.45, ease: "power3.out", clearProps: "transform,opacity" },
+                "-=0.3"
+              );
           },
-          "-=0.2"
-        )
-        .fromTo(
-          ".gs-sub",
-          { y: 15, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.45, ease: "power3.out", clearProps: "transform,opacity" },
-          "-=0.3"
+          { threshold: 0.15 }
         );
+        obs.observe(head);
+        observers.push(obs);
+      }
 
-      gsap.utils.toArray(".gs-card").forEach((card) => {
-        const ctl = gsap.timeline({
-          defaults: { ease: "power3.out" },
-          scrollTrigger: { trigger: card, start: "top 88%", once: true },
-        });
-
-        ctl.fromTo(
-          card,
-          { y: 35, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.55, ease: "power3.out", clearProps: "transform,opacity" }
-        )
-          .fromTo(
-            card.querySelector(".gs-img"),
-            { scale: 1.08, opacity: 0.85 },
-            { scale: 1, opacity: 1, duration: 0.7, ease: "power2.out", clearProps: "transform,opacity" },
-            "-=0.4"
-          )
-          .fromTo(
-            card.querySelector(".gs-badge"),
-            { x: 25, opacity: 0 },
-            { x: 0, opacity: 1, duration: 0.35, ease: "power2.out", clearProps: "transform,opacity" },
-            "-=0.45"
-          )
-          .fromTo(
-            card.querySelector(".gs-card-rule"),
-            { scaleX: 0 },
-            { scaleX: 1, transformOrigin: "left center", duration: 0.35, ease: "power2.out", clearProps: "transform" },
-            "-=0.35"
-          )
-          .fromTo(
-            card.querySelectorAll(".gs-line"),
-            { y: 14, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.4, stagger: 0.04, ease: "power3.out", clearProps: "transform,opacity" },
-            "-=0.3"
-          )
-          .fromTo(
-            card.querySelectorAll(".gs-spec"),
-            { y: 12, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.35, stagger: 0.04, ease: "power2.out", clearProps: "transform,opacity" },
-            "-=0.25"
-          )
-          .fromTo(
-            card.querySelector(".gs-countdown-box"),
-            { y: 12, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.4, ease: "power2.out", clearProps: "transform,opacity" },
-            "-=0.2"
-          )
-          .fromTo(
-            card.querySelector(".gs-actions"),
-            { y: 14, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.4, ease: "power3.out", clearProps: "transform,opacity" },
-            "-=0.2"
-          );
+      section.querySelectorAll(".gs-card").forEach((card) => {
+        if (typeof IntersectionObserver === "undefined") return;
+        const obs = new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((e) => e.isIntersecting)) return;
+            obs.disconnect();
+            const ctl = gsap.timeline({ defaults: { ease: "power3.out" } });
+            ctl
+              .fromTo(
+                card,
+                { y: 35, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.55, ease: "power3.out", clearProps: "transform,opacity" }
+              )
+              .fromTo(
+                card.querySelector(".gs-img"),
+                { scale: 1.08, opacity: 0.85 },
+                { scale: 1, opacity: 1, duration: 0.7, ease: "power2.out", clearProps: "transform,opacity" },
+                "-=0.4"
+              )
+              .fromTo(
+                card.querySelectorAll(".gs-line"),
+                { y: 14, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.4, stagger: 0.04, ease: "power3.out", clearProps: "transform,opacity" },
+                "-=0.3"
+              )
+              .fromTo(
+                card.querySelectorAll(".gs-spec"),
+                { y: 12, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.35, stagger: 0.04, ease: "power2.out", clearProps: "transform,opacity" },
+                "-=0.25"
+              )
+              .fromTo(
+                card.querySelector(".gs-countdown-box"),
+                { y: 12, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.4, ease: "power2.out", clearProps: "transform,opacity" },
+                "-=0.2"
+              )
+              .fromTo(
+                card.querySelector(".gs-actions"),
+                { y: 14, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.4, ease: "power3.out", clearProps: "transform,opacity" },
+                "-=0.2"
+              );
+          },
+          { threshold: 0.12 }
+        );
+        obs.observe(card);
+        observers.push(obs);
       });
-    },
-    { scope: root }
-  );
+    }, root);
+
+    return () => {
+      observers.forEach((o) => o.disconnect());
+      ctx.revert();
+    };
+  }, []);
 
   return (
     <section
       ref={root}
       id="projects"
-      className={`${geist.className} relative w-full py-9 sm:py-16 md:py-20`}
+      className="relative w-full py-9 sm:py-16 md:py-20"
     >
       <div className="relative mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-10">
         <div className="gs-head mb-7 text-center sm:mb-14">
@@ -239,7 +241,6 @@ export default function OurProjects() {
 
 function ProjectCard({ project }) {
   const { days, hrs, min, sec } = useCountdown(project.completionDate);
-  const router = useRouter();
   const href = `/projects/${project.slug}`;
 
   return (
@@ -250,19 +251,14 @@ function ProjectCard({ project }) {
         <Link
           href={href}
           aria-label={`View ${project.name} project details`}
-          // Removed fixed height, added flex to center if needed
           className="relative block w-full overflow-hidden bg-gray-50"
         >
           <Image
             src={project.image}
             alt={project.name}
-            // REMOVED: fill
-            // ADDED: width={0} height={0} sizes="100vw" to enable responsive sizing
-            width={0}
-            height={0}
-            sizes="100vw"
-            // CHANGED: object-cover to object-contain
-            // ADDED: w-full h-auto to maintain aspect ratio
+            width={420}
+            height={420}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 310px"
             className="gs-img h-auto w-full object-contain transition-transform duration-500 group-hover/card:scale-[1.04]"
           />
         </Link>
@@ -349,7 +345,7 @@ function ProjectCard({ project }) {
               <div className="min-w-0">
                 <div
                   className="text-[9.5px] font-semibold tracking-[0.14em] sm:text-[10px]"
-                  style={{ color: TEXT_CHARCOAL, opacity: 0.6 }}
+                  style={{ color: TEXT_MUTED }}
                 >
                   {label}
                 </div>
@@ -369,7 +365,7 @@ function ProjectCard({ project }) {
           <div className="flex flex-col gap-1 xs:flex-row xs:items-center xs:justify-between sm:flex-row sm:items-center sm:justify-between sm:gap-1.5">
             <span
               className="text-[9.5px] font-semibold tracking-[0.14em] sm:text-[10px] sm:tracking-[0.16em]"
-              style={{ color: TEXT_CHARCOAL, opacity: 0.6 }}
+              style={{ color: TEXT_MUTED }}
             >
               TIME LEFT FOR PROJECT COMPLETION
             </span>
@@ -406,7 +402,7 @@ function ProjectCard({ project }) {
                 </span>
                 <span
                   className="mt-0.5 text-[8.5px] font-semibold tracking-[0.1em] sm:mt-1 sm:text-[10px] sm:tracking-[0.14em]"
-                  style={{ color: TEXT_CHARCOAL, opacity: 0.6 }}
+                  style={{ color: TEXT_MUTED }}
                 >
                   {l}
                 </span>

@@ -1,79 +1,90 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import Image from "next/image";
 
 const SLIDES = [
-   {
-    desktop: "/banners/main-banner.webp",
-    mobile: "/banners/1.webp",
+  {
+    desktop: "/banners/33.webp",
+    desktopWidth: 1366,
+    desktopHeight: 626,
+    mobile: "/banners/m-1.webp",
+    mobileWidth: 720,
+    mobileHeight: 1035,
     alt: "Project amenities banner",
   },
   {
-    desktop: "/banners/privana11.webp",
+    desktop: "/banners/privananew.webp",
+    desktopWidth: 1366,
+    desktopHeight: 626,
     mobile: "/banners/2.webp",
+    mobileWidth: 694,
+    mobileHeight: 1000,
     alt: "Privana project banner",
   },
   {
-    desktop: "/banners/gurudev.webp",
+    desktop: "/banners/home-1.png",
+    desktopWidth: 1366,
+    desktopHeight: 626,
     mobile: "/banners/mob1.webp",
+    mobileWidth: 720,
+    mobileHeight: 1088,
     alt: "Gurudev project banner",
   },
- 
 ];
 
-/* Set these to the REAL pixel size of your image files.
-   Desktop images (768px and up) and mobile images (below 768px). */
-const DESKTOP_SIZE = { width: 1920, height: 900 };
-const MOBILE_SIZE = { width: 800, height: 1000 };
-
-const AUTO_SCROLL_MS = 3000;
+const AUTO_SCROLL_MS = 5500;
 const SWIPE_THRESHOLD = 50;
 
 function SlideImage({ slide, priority }) {
   return (
-    <>
-      <Image
-        src={slide.desktop}
-        alt={slide.alt}
-        width={DESKTOP_SIZE.width}
-        height={DESKTOP_SIZE.height}
-        sizes="100vw"
-        quality={85}
-        priority={priority}
-        className="hidden h-auto w-full md:block"
+    <picture className="block w-full">
+      <source
+        media="(min-width: 768px)"
+        srcSet={slide.desktop}
+        width={slide.desktopWidth}
+        height={slide.desktopHeight}
       />
-      <Image
+      <img
         src={slide.mobile}
         alt={slide.alt}
-        width={MOBILE_SIZE.width}
-        height={MOBILE_SIZE.height}
-        sizes="100vw"
-        quality={85}
-        priority={priority}
-        className="block h-auto w-full md:hidden"
+        width={slide.mobileWidth}
+        height={slide.mobileHeight}
+        fetchPriority={priority ? "high" : "auto"}
+        loading={priority ? "eager" : "lazy"}
+        decoding={priority ? "sync" : "async"}
+        className="block h-auto w-full"
       />
-    </>
+    </picture>
   );
 }
 
 export default function HeroBanner() {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [loadRest, setLoadRest] = useState(false);
   const pausedRef = useRef(false);
   const touchStartX = useRef(null);
 
   const next = useCallback(() => {
+    setLoadRest(true);
     setActive((p) => (p + 1) % SLIDES.length);
   }, []);
 
   const prev = useCallback(() => {
+    setLoadRest(true);
     setActive((p) => (p - 1 + SLIDES.length) % SLIDES.length);
   }, []);
 
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+
+  useEffect(() => {
+    const preloadTimer = setTimeout(() => {
+      setLoadRest(true);
+    }, 3500);
+    return () => clearTimeout(preloadTimer);
+  }, []);
 
   useEffect(() => {
     if (SLIDES.length < 2) return;
@@ -115,7 +126,11 @@ export default function HeroBanner() {
       onTouchEnd={onTouchEnd}
       className="hero-banner relative isolate grid w-full overflow-hidden"
     >
+      <h1 className="sr-only">
+        PKR Estates — Luxury and Affordable Residential Apartments in Chennai
+      </h1>
       {SLIDES.map((s, i) => {
+        if (i > 0 && !loadRest && active === 0) return null;
         const isActive = i === active;
         return (
           <div

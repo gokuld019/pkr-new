@@ -2,8 +2,7 @@
 
 import { useRef } from "react";
 import { motion } from "framer-motion";
-import { ChevronRight } from "lucide-react";
-import { EASE, useReveal, SplitReveal, WordReveal, FadeUp, CountUp } from "@/components/motion/reveal";
+import { EASE, useReveal, SplitReveal, WordReveal, CountUp } from "@/components/motion/reveal";
 
 const DEEP_NAVY = "#0F3A6B";
 const TEXT_CHARCOAL = "#2D3A46";
@@ -25,7 +24,7 @@ export default function AboutStats() {
     <section
       id="about"
       className="relative w-full overflow-hidden bg-cover bg-center bg-no-repeat py-10 sm:py-20 md:py-24 lg:py-30 font-sans"
-      style={{ backgroundImage: "url('/hiii.jpeg')" }}
+      style={{ backgroundImage: "url('/hiii.webp')" }}
     >
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-5 md:px-6 lg:px-8">
 
@@ -78,15 +77,6 @@ export default function AboutStats() {
           delay={0.1}
           className="mx-auto mt-5 max-w-4xl text-center text-[13px] leading-relaxed sm:mt-8 sm:text-lg lg:text-xl text-[#2D3A46]"
         />
-
-        <FadeUp delay={0.2} amount={0.8} className="mt-4 flex justify-center sm:mt-6">
-          <button
-            type="button"
-            className="group inline-flex items-center gap-3 text-sm font-bold uppercase tracking-wide sm:text-base text-[#2D3A46]"
-          >
-            {/* ... */}
-          </button>
-        </FadeUp>
       </div>
     </section>
   );

@@ -9,7 +9,7 @@ import { useGSAP } from "@gsap/react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText"; // free in gsap 3.13+
 import {
-  Home, Coins, Wallet, Percent, CalendarDays, RotateCcw, ArrowRight,
+  Home, Wallet, Percent, CalendarDays, RotateCcw, ArrowRight,
   Lightbulb, PiggyBank, Landmark, FileText, User, HeartHandshake,
 } from "lucide-react";
 
@@ -71,15 +71,13 @@ const isHeading = (el) => /^H[1-6]$/.test(el.tagName);
 export default function EmiCalculatorPage() {
   const root = useRef(null);
 
-  const [propertyValue, setPropertyValue] = useState(7500000);
-  const [downPaymentPct, setDownPaymentPct] = useState(20);
+  // Loan amount is now a direct input (default = old ₹75L property with 20% down payment)
+  const [loanAmount, setLoanAmount] = useState(6000000);
   const [interestRate, setInterestRate] = useState(8.5);
   const [tenureYears, setTenureYears] = useState(20);
   const [compareTab, setCompareTab] = useState("rate");
   const [hoveredBar, setHoveredBar] = useState(null);
 
-  const downPayment = useMemo(() => Math.round((propertyValue * downPaymentPct) / 100), [propertyValue, downPaymentPct]);
-  const loanAmount = useMemo(() => propertyValue - downPayment, [propertyValue, downPayment]);
   const emi = useMemo(() => calcEmiAtRate(loanAmount, interestRate, tenureYears), [loanAmount, interestRate, tenureYears]);
   const totalPayment = useMemo(() => emi * tenureYears * 12, [emi, tenureYears]);
   const totalInterest = useMemo(() => totalPayment - loanAmount, [totalPayment, loanAmount]);
@@ -92,8 +90,7 @@ export default function EmiCalculatorPage() {
   const principalDash = (principalPct / 100) * circumference;
 
   const reset = () => {
-    setPropertyValue(7500000);
-    setDownPaymentPct(20);
+    setLoanAmount(6000000);
     setInterestRate(8.5);
     setTenureYears(20);
   };
@@ -278,50 +275,19 @@ export default function EmiCalculatorPage() {
             </div>
 
             <div className="flex flex-col gap-5 sm:gap-7 flex-1">
+              {/* Loan Amount - now an input (replaces Property Value + Down Payment) */}
               <SliderField
-                icon={Home}
-                label="Property Value"
-                value={<AnimatedNumber value={propertyValue} />}
-                min={2000000}
+                icon={Wallet}
+                label="Loan Amount"
+                value={<AnimatedNumber value={loanAmount} />}
+                min={500000}
                 max={50000000}
                 step={100000}
-                current={propertyValue}
-                onChange={setPropertyValue}
-                minLabel="₹20L"
+                current={loanAmount}
+                onChange={setLoanAmount}
+                minLabel="₹5L"
                 maxLabel="₹5Cr"
               />
-
-              <SliderField
-                icon={Coins}
-                label="Down Payment"
-                value={
-                  <AnimatedNumber
-                    value={downPayment}
-                    format={(v) => `${formatINR(v)} (${downPaymentPct}%)`}
-                  />
-                }
-                min={0}
-                max={70}
-                step={1}
-                current={downPaymentPct}
-                onChange={setDownPaymentPct}
-                minLabel="0%"
-                maxLabel="70%"
-              />
-
-              {/* Loan Amount - readonly */}
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 rounded-xl px-3.5 py-3.5 sm:px-4 sm:py-4" style={{ backgroundColor: LIGHT_BLUE_SOFT }}>
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: LIGHT_BLUE }}>
-                  <Wallet className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={1.75} style={{ color: DEEP_NAVY }} />
-                </div>
-                <div className="flex-1 min-w-[100px]">
-                  <div data-text className="text-[13px] sm:text-sm font-medium" style={{ color: DEEP_NAVY }}>Loan Amount</div>
-                  <div data-text className="text-[10.5px] sm:text-[11px]" style={{ color: TEXT_CHARCOAL }}>(Auto calculated)</div>
-                </div>
-                <div className="text-[15px] sm:text-lg font-bold" style={{ color: DEEP_NAVY }}>
-                  <AnimatedNumber value={loanAmount} />
-                </div>
-              </div>
 
               <SliderField
                 icon={Percent}
@@ -578,7 +544,7 @@ export default function EmiCalculatorPage() {
             </div>
 
             {/* Banking Partners */}
-            <div className="rounded-2xl border bg-white p-4 sm:p-6 md:p-8 h-full flex flex-col" style={{ borderColor: LINE }}>
+            {/* <div className="rounded-2xl border bg-white p-4 sm:p-6 md:p-8 h-full flex flex-col" style={{ borderColor: LINE }}>
               <h3 data-text className="text-[15px] sm:text-lg md:text-xl font-bold" style={{ color: DEEP_NAVY }}>
                 Our Banking Partners
               </h3>
@@ -598,7 +564,7 @@ export default function EmiCalculatorPage() {
                   </span>
                 ))}
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </section>

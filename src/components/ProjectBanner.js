@@ -39,6 +39,38 @@ const ENQUIRY_API = 'https://gurudev.pkrestates.com/backend/api/submit-enquiry'
 const WHATSAPP_NUMBER = '919381055555'
 
 /* ------------------------------------------------------------------ */
+/*  RERA CERTIFICATE PDFs  (files live in /public/rera)                */
+/*  Clicking the "RERA Number" quick-fact card opens the PDF below.   */
+/*  Change the file names here if yours are different.               */
+/*  (A `reraPdf` set on the project in projects.js wins over this.)   */
+/* ------------------------------------------------------------------ */
+const RERA_PDFS = {
+  gurudev: '/rera/gurudev.pdf',
+  privana: '/rera/privana.pdf',
+}
+
+function getReraPdf(project) {
+  if (!project) return ''
+  if (project.reraPdf) return project.reraPdf
+  if (RERA_PDFS[project.slug]) return RERA_PDFS[project.slug]
+  return project.slug ? `/rera/${project.slug}.pdf` : ''
+}
+
+/* ------------------------------------------------------------------ */
+/*  Projects whose floor plans should NOT show any facing filter /     */
+/*  facing badge / "East Facing" detail.                              */
+/* ------------------------------------------------------------------ */
+const HIDE_FACING_SLUGS = ['gurudev']
+
+/* ------------------------------------------------------------------ */
+/*  Pre-launch offer note shown in the pricing box (Privana only).     */
+/*  Change the text/date here, or set `offerValidityText` on the       */
+/*  project in projects.js to override it.                             */
+/* ------------------------------------------------------------------ */
+const OFFER_NOTE_SLUGS = ['privana']
+const DEFAULT_OFFER_NOTE = 'Pre-launch offer valid till Nov 8th 2026'
+
+/* ------------------------------------------------------------------ */
 /*  WHATSAPP HELPER                                                    */
 /* ------------------------------------------------------------------ */
 function buildWhatsAppUrl({ name, phone, inquiryType, message, projectName }) {
@@ -372,8 +404,12 @@ const PLOT_FEATURES = [
   { icon: Leaf, title: 'Future Growth', text: ['A location with', 'lasting potential'] },
 ]
 
+// Without offer prices (Gurudev): Flat | Type | Facing & area | Price | action
 const UNIT_GRID_COLS = 'sm:grid-cols-[1fr_0.85fr_1.3fr_1fr_150px]'
 const UNIT_TABLE_HEADERS = ['Flat', 'Type', 'Facing & area', 'Price', '']
+// With offer prices (Privana): Flat | Type | Facing & area | Price | Offer Price | action
+const UNIT_GRID_COLS_OFFER = 'sm:grid-cols-[0.8fr_0.8fr_1.05fr_0.95fr_1.1fr_132px]'
+const UNIT_TABLE_HEADERS_OFFER = ['Flat', 'Type', 'Facing & area', 'Price', 'Offer Price', '']
 const UNITS_PAGE_SIZE = 8
 
 function formatPlotPrice(plot) {
@@ -414,6 +450,12 @@ function PlotCell({ children, divider = true }) {
 function getPricingType(project) {
   if (project?.plotPricing?.length && project.plotPricing[0].flatNo) return 'units'
   return 'plots'
+}
+
+// Does this row carry a pre-launch / offer price? (Privana rows have `offerPrice`)
+function rowHasOffer(row) {
+  const n = Number(row?.offerPrice)
+  return Number.isFinite(n) && n > 0
 }
 
 const pad = (n) => String(n).padStart(2, '0')
@@ -466,21 +508,6 @@ function useNavbarOffset(selector, fallback = 0) {
 
 /* ================================================================== */
 /*  PROJECT SUB-MENU  (iOS-safe)                                       */
-/*                                                                     */
-/*  What changed vs. the flickering version:                           */
-/*   - NO transform / translateZ layer on the sticky bar (that is a    */
-/*     known cause of iOS Safari sticky flicker)                       */
-/*   - NO backdrop-filter anywhere on the bar: solid white, every      */
-/*     screen size (iPads and landscape iPhones are >= sm too)        */
-/*   - bar tucks 1px under the navbar so a sub-pixel gap can never     */
-/*     show page content between the two                              */
-/*   - the tab strip is only auto-centred when the page has stopped    */
-/*     scrolling (setting scrollLeft mid-momentum-scroll made the      */
-/*     active pill jump / ghost on iPhone)                             */
-/*   - fade-edge gradients have no transition on phones                */
-/*   - component is memoised: the 5s gallery autoplay no longer        */
-/*     re-renders the bar                                              */
-/*   - active section from IntersectionObserver, no layout reads       */
 /* ================================================================== */
 function ProjectSubMenuBase({
   items = [],
@@ -585,8 +612,6 @@ function ProjectSubMenuBase({
       if (el) io.observe(el)
     })
 
-    // "reached the very bottom of the page" -> last tab. Only reads scroll
-    // metrics (no layout), and only sets state on change.
     let raf = 0
     const checkEnd = () => {
       raf = 0
@@ -598,7 +623,7 @@ function ProjectSubMenuBase({
       if (next !== atEnd) { atEnd = next; commit() }
     }
     const onScroll = () => {
-      lastScrollRef.current = performance.now() // used to wait for scroll-idle before centring tabs
+      lastScrollRef.current = performance.now()
       if (!raf) raf = requestAnimationFrame(checkEnd)
     }
     window.addEventListener('scroll', onScroll, { passive: true })
@@ -675,9 +700,7 @@ function ProjectSubMenuBase({
     return () => { s.removeEventListener('scroll', updateEdges); ro.disconnect() }
   }, [updateEdges, orderedKey])
 
-  /* ---------- keep active tab visible ----------
-     Never touches the strip while the PAGE is still scrolling: it waits until
-     the page has been idle for ~180ms (iOS momentum scroll included). */
+  /* ---------- keep active tab visible ---------- */
   useEffect(() => {
     let tries = 0
 
@@ -726,7 +749,6 @@ function ProjectSubMenuBase({
         className="sticky z-40 w-full"
         style={{ top: stickyTop, fontFamily }}
       >
-        {/* Solid white on every screen size. Only the shadow/border strength changes when pinned (sm and up). */}
         <div
           className={`relative w-full border-b border-[#E4ECF4] bg-white shadow-[0_10px_22px_-18px_rgba(15,58,107,0.4)] ${
             stuck ? 'sm:border-[#0F3A6B]/10 sm:shadow-[0_12px_32px_-20px_rgba(15,58,107,0.45)]' : 'sm:shadow-none'
@@ -861,8 +883,6 @@ function ProjectSubMenuBase({
   )
 }
 
-// Memoised: re-renders only if the section list / name / navbar settings change,
-// NOT when the parent re-renders for the gallery autoplay, useInView, etc.
 const ProjectSubMenu = memo(ProjectSubMenuBase, (a, b) => {
   const key = (list) => (list || []).map((i) => `${i.id}:${i.label}`).join('|')
   return (
@@ -877,14 +897,19 @@ const ProjectSubMenu = memo(ProjectSubMenuBase, (a, b) => {
 /* ==================================================================
    UNIT ROW
 ================================================================== */
-function UnitRow({ row, onEnquire }) {
+function UnitRow({ row, onEnquire, hasOffer = false }) {
   const floor = row.floor?.replace(' Floor', '')
   const area = row.sqft ? `${row.sqft} sq.ft` : ''
+
+  const showOffer = hasOffer && rowHasOffer(row)
+  const regularPrice = hasOffer ? row.total : row.finalTotal
+  const gridCols = hasOffer ? UNIT_GRID_COLS_OFFER : UNIT_GRID_COLS
 
   return (
     <div
       className={`group rounded-xl px-2.5 py-2.5 transition-colors duration-200 sm:px-4 sm:py-3 hover:bg-[#F0F6FC]`}
     >
+      {/* ---------- Mobile ---------- */}
       <div className="flex items-center justify-between gap-3 sm:hidden">
         <div className="min-w-0">
           <p className="m-0 text-[14px] font-bold leading-tight tabular-nums" style={{ color: DEEP_NAVY }}>
@@ -896,9 +921,21 @@ function UnitRow({ row, onEnquire }) {
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <span className="text-[13.5px] font-bold tabular-nums leading-none" style={{ color: DEEP_NAVY }}>
-            {formatUnitPrice(row.finalTotal)}
-          </span>
+          {showOffer ? (
+            <div className="flex flex-col items-end leading-none">
+              <span className="text-[11px] font-medium tabular-nums line-through" style={{ color: TEXT_CHARCOAL, opacity: 0.5 }}>
+                {formatUnitPrice(regularPrice)}
+              </span>
+              <span className="mt-1 text-[13.5px] font-bold tabular-nums" style={{ color: DEEP_NAVY }}>
+                {formatUnitPrice(row.offerPrice)}
+              </span>
+              <span className="mt-1 text-[9.5px] font-bold uppercase tracking-[1px] text-emerald-600">Offer price</span>
+            </div>
+          ) : (
+            <span className="text-[13.5px] font-bold tabular-nums leading-none" style={{ color: DEEP_NAVY }}>
+              {formatUnitPrice(row.finalTotal)}
+            </span>
+          )}
           <button
             type="button"
             onClick={onEnquire}
@@ -910,7 +947,8 @@ function UnitRow({ row, onEnquire }) {
         </div>
       </div>
 
-      <div className={`hidden items-center gap-4 sm:grid ${UNIT_GRID_COLS}`}>
+      {/* ---------- Desktop / tablet ---------- */}
+      <div className={`hidden items-center gap-4 sm:grid ${gridCols}`}>
         <div className="flex flex-col">
           <span className="text-[15px] font-bold leading-tight tabular-nums" style={{ color: DEEP_NAVY }}>{row.flatNo}</span>
           {floor && <span className="mt-0.5 text-[11.5px]" style={{ color: TEXT_CHARCOAL, opacity: 0.6 }}>{floor} floor</span>}
@@ -920,7 +958,28 @@ function UnitRow({ row, onEnquire }) {
           <span className="text-[13.5px] font-medium" style={{ color: TEXT_CHARCOAL }}>{row.facing}</span>
           <span className="mt-0.5 text-[11.5px] tabular-nums" style={{ color: TEXT_CHARCOAL, opacity: 0.6 }}>{area}</span>
         </div>
-        <span className="text-[15px] font-bold tabular-nums" style={{ color: DEEP_NAVY }}>{formatUnitPrice(row.finalTotal)}</span>
+
+        {hasOffer ? (
+          <>
+            <span
+              className={`text-[13.5px] font-medium tabular-nums ${showOffer ? 'line-through' : ''}`}
+              style={{ color: TEXT_CHARCOAL, opacity: showOffer ? 0.5 : 1 }}
+            >
+              {formatUnitPrice(regularPrice)}
+            </span>
+            <div className="flex flex-col">
+              <span className="text-[15px] font-bold tabular-nums" style={{ color: DEEP_NAVY }}>
+                {showOffer ? formatUnitPrice(row.offerPrice) : '—'}
+              </span>
+              {showOffer && (
+                <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[1px] text-emerald-600">Pre-launch offer</span>
+              )}
+            </div>
+          </>
+        ) : (
+          <span className="text-[15px] font-bold tabular-nums" style={{ color: DEEP_NAVY }}>{formatUnitPrice(row.finalTotal)}</span>
+        )}
+
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
@@ -1581,7 +1640,6 @@ export default function ProjectBanner({ project }) {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [paused, setPaused] = useState(false)
   const galleryRef = useRef(null)
-  // autoplay only while the gallery is actually on screen (no off-screen animation work while scrolling elsewhere)
   const galleryInView = useInView(galleryRef, { amount: 0.2 })
 
   const galleryPrev = useCallback(() => { setDirection(-1); setGalleryIndex((i) => (i === 0 ? galleryItems.length - 1 : i - 1)) }, [galleryItems.length])
@@ -1624,13 +1682,18 @@ export default function ProjectBanner({ project }) {
 
   /* ---------------- Facing filter ---------------- */
 
+  // Gurudev (and any slug in HIDE_FACING_SLUGS, or a project with `hideFacingFilter: true`)
+  // shows NO facing filter, facing badge or "East Facing" detail in its floor plans.
+  const hideFacing =
+    Boolean(project?.hideFacingFilter) || HIDE_FACING_SLUGS.includes(project?.slug)
+
   const pricingRowsForFacing = project?.plotPricing?.length ? project.plotPricing : EMPTY_ROWS
 
   const planFacings = useMemo(() => {
     const map = new Map()
-    allFloorPlans.forEach((plan) => map.set(plan, getPlanFacing(plan, pricingRowsForFacing)))
+    allFloorPlans.forEach((plan) => map.set(plan, hideFacing ? '' : getPlanFacing(plan, pricingRowsForFacing)))
     return map
-  }, [allFloorPlans, pricingRowsForFacing])
+  }, [allFloorPlans, pricingRowsForFacing, hideFacing])
 
   const facingCounts = useMemo(() => {
     const counts = {}
@@ -1646,12 +1709,11 @@ export default function ProjectBanner({ project }) {
     [facingCounts],
   )
 
-  const hasFacingFilter = facingOptions.length > 1
+  const hasFacingFilter = !hideFacing && facingOptions.length > 1
 
   const [facingFilter, setFacingFilter] = useState('all')
 
   useEffect(() => { setFacingFilter('all') }, [activeBlock])
-  // clear picked plan whenever facing filter changes so a valid plan is always selected
   useEffect(() => { setPicked(null) }, [facingFilter])
 
   const isFacingFiltered = hasFacingFilter && facingFilter !== 'all'
@@ -1763,6 +1825,21 @@ export default function ProjectBanner({ project }) {
   const isUnits = pricingType === 'units'
   const plotRows = project?.plotPricing?.length ? project.plotPricing : DEFAULT_PLOT_PRICING
 
+  const hasOffer = isUnits && plotRows.some(rowHasOffer)
+  const unitTableHeaders = hasOffer ? UNIT_TABLE_HEADERS_OFFER : UNIT_TABLE_HEADERS
+  const unitGridCols = hasOffer ? UNIT_GRID_COLS_OFFER : UNIT_GRID_COLS
+  const plotPricingNote =
+    project?.plotPricingNote ||
+    (hasOffer
+      ? 'Offer prices are pre-launch prices · Registration, GST & other charges are extra'
+      : 'Registration, GST & other charges are extra')
+
+  // Pre-launch offer note (Privana only) — shown in the pricing box
+  const offerNote =
+    isUnits && OFFER_NOTE_SLUGS.includes(project?.slug)
+      ? (project?.offerValidityText || DEFAULT_OFFER_NOTE)
+      : ''
+
   const plotTabs = isUnits
     ? (project?.plotPricingTabs?.length
         ? project.plotPricingTabs
@@ -1816,6 +1893,7 @@ export default function ProjectBanner({ project }) {
   const lastRowStart = factsCount - (factsCount % 2 === 0 ? 2 : 1)
   const plotCtaImage = project.plotPricingCtaImage || '/plot.png'
   const hasBrochure = Boolean(project.brochureUrl)
+  const reraPdfUrl = getReraPdf(project)
 
   const panoramaSrc = project.tour360Image || project.tourImage
   const tourThumbnail = project.tourThumbnail || project.tourImage || project.tour360Image
@@ -1834,32 +1912,32 @@ export default function ProjectBanner({ project }) {
   return (
     <div className={`${figtree.className} w-full overflow-x-clip`} style={{ fontFamily: FONT }}>
       {/* ================= Banner ================= */}
-<section ref={bannerRef} className="relative w-full" style={{ fontFamily: FONT }}>
-  {/* Desktop / tablet (md and up) — scales with width using aspect-ratio */}
-  <div
-    role="img"
-    aria-label={project.name ? `${project.name} banner` : 'Project banner'}
-    className="relative mx-auto hidden w-full overflow-hidden bg-[#333] bg-cover bg-center bg-no-repeat md:block"
-    style={{
-      backgroundImage: `url(${project.heroImage})`,
-      aspectRatio: `${project.heroAspectW || DESKTOP_BANNER_W} / ${project.heroAspectH || DESKTOP_BANNER_H}`,
-      maxHeight: `${DESKTOP_BANNER_MAX_H}px`,
-    }}
-  />
+      <section ref={bannerRef} className="relative w-full" style={{ fontFamily: FONT }}>
+        {/* Desktop / tablet (md and up) — scales with width using aspect-ratio */}
+        <div
+          role="img"
+          aria-label={project.name ? `${project.name} banner` : 'Project banner'}
+          className="relative mx-auto hidden w-full overflow-hidden bg-[#333] bg-cover bg-center bg-no-repeat md:block"
+          style={{
+            backgroundImage: `url(${project.heroImage})`,
+            aspectRatio: `${project.heroAspectW || DESKTOP_BANNER_W} / ${project.heroAspectH || DESKTOP_BANNER_H}`,
+            maxHeight: `${DESKTOP_BANNER_MAX_H}px`,
+          }}
+        />
 
-  {/* Mobile (below md) */}
-  <div className="relative w-full bg-[#333] md:hidden">
-    <div
-      role="img"
-      aria-label={project.name ? `${project.name} banner` : 'Project banner'}
-      className="relative mx-auto w-full overflow-hidden bg-[#333] bg-cover bg-top bg-no-repeat"
-      style={{
-        backgroundImage: `url(${project.heroImageMobile || project.heroImage})`,
-        aspectRatio: `${MOBILE_BANNER_W} / ${MOBILE_BANNER_H}`,
-      }}
-    />
-  </div>
-</section>
+        {/* Mobile (below md) */}
+        <div className="relative w-full bg-[#333] md:hidden">
+          <div
+            role="img"
+            aria-label={project.name ? `${project.name} banner` : 'Project banner'}
+            className="relative mx-auto w-full overflow-hidden bg-[#333] bg-cover bg-top bg-no-repeat"
+            style={{
+              backgroundImage: `url(${project.heroImageMobile || project.heroImage})`,
+              aspectRatio: `${MOBILE_BANNER_W} / ${MOBILE_BANNER_H}`,
+            }}
+          />
+        </div>
+      </section>
 
       {/* ================= Sticky Sub-Menu ================= */}
       <ProjectSubMenu
@@ -1869,119 +1947,154 @@ export default function ProjectBanner({ project }) {
         onEnquire={() => openEnquire(project.name || '', 'Sticky menu')}
       />
 
-     {/* ================= Overview ================= */}
-<section
-  id="overview"
-  className="relative w-full overflow-hidden bg-white px-4 py-10 sm:px-8 sm:py-16 md:px-10 lg:px-12 lg:py-20 xl:px-16 xl:py-24"
-  style={{ fontFamily: FONT }}
->
-  <div className="relative mx-auto grid max-w-[1500px] grid-cols-1 items-stretch gap-7 sm:gap-10 lg:grid-cols-2 lg:gap-8 xl:grid-cols-[1fr_0.9fr_1.15fr]">
-    {/* ---------- Text column ---------- */}
-    <div className="min-w-0">
-      <FadeUp>
-        <div className="mb-3 flex items-center gap-3 sm:mb-5">
-          <SectionEyebrow>{project.eyebrow || 'More than just a home'}</SectionEyebrow>
-        </div>
-      </FadeUp>
-
-      <RevealText
-        as="h2"
-        className="mb-3 text-[26px] font-semibold leading-[1.15] tracking-tight text-[#1f2029] sm:mb-5 sm:text-[36px] sm:leading-[1.12] md:text-[44px] lg:text-[42px] xl:text-[46px] 2xl:text-[52px]"
-        text={
-          <>
-            {project.heading?.[0] || 'Designed for a'}
-            <br />
-            <span style={{ color: DEEP_NAVY }}>{project.heading?.[1] || 'Better Way of Life'}</span>
-          </>
-        }
-        delay={0.1}
-      />
-
-      <FadeUp delay={0.2}>
-        <p
-          className="mb-5 max-w-[610px] text-[13.5px] leading-[1.75] sm:mb-8 sm:text-[15px] sm:leading-[1.85] md:text-base"
-          style={{ color: TEXT_CHARCOAL }}
-        >
-          {project.description}
-        </p>
-      </FadeUp>
-
-      <FadeUp delay={0.3}>
-        <div className="mb-1 flex flex-wrap items-center gap-2.5 sm:gap-3 lg:mb-0 xl:mb-8">
-          {hasBrochure && (
-            <AccentOutlineButton onClick={openBrochure} icon={Download}>
-              Download Brochure
-            </AccentOutlineButton>
-          )}
-          <AccentOutlineButton href="tel:+919543633333" icon={Phone}>
-            Call Us
-          </AccentOutlineButton>
-        </div>
-      </FadeUp>
-    </div>
-
-    {/* ---------- Image column ---------- */}
-    <FadeUp
-      delay={0.15}
-      className="relative min-w-0 lg:min-h-[480px] xl:min-h-[420px] xl:h-full"
-    >
-      <img
-        src={project.aboutImage}
-        alt={project.name || 'Project'}
-        className="h-auto w-full rounded-[14px] object-cover shadow-[0_24px_60px_-28px_rgba(0,0,0,0.35)] sm:rounded-[16px] lg:absolute lg:inset-0 lg:h-full"
-      />
-    </FadeUp>
-
-    {/* ---------- Quick facts card ---------- */}
-    <FadeUp delay={0.25} amount={0.1} className="min-w-0 lg:col-span-2 xl:col-span-1 xl:h-full">
-      <div className="relative flex h-full w-full flex-col justify-center rounded-[18px] border border-[#E0E8F0] bg-white px-4 py-2 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.18)] sm:rounded-[22px] sm:px-6 sm:py-6 md:px-7 md:py-8 xl:px-6 xl:py-10 2xl:px-7">
-        <div className="pointer-events-none absolute bottom-8 left-1/2 top-8 hidden w-px -translate-x-1/2 bg-[#E8EFF7] sm:block" />
-        <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
-          {quickFacts.map((fact, i) => {
-            const FactIcon = factIconMap[fact.icon] || getFactIcon(fact.label)
-            const isRight = i % 2 === 1
-            const isLastRow = i >= lastRowStart
-            return (
-              <div
-                key={i}
-                className={`flex min-w-0 items-start gap-3 border-b border-[#E8EFF7] py-3.5 sm:gap-4 sm:py-6 xl:py-7 ${
-                  isLastRow ? 'sm:border-b-0' : ''
-                } ${i === factsCount - 1 ? 'border-b-0' : ''} ${isRight ? 'sm:pl-6' : 'sm:pr-4'}`}
-              >
-                <span
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:h-[56px] sm:w-[56px] sm:rounded-2xl xl:h-[52px] xl:w-[52px] 2xl:h-[60px] 2xl:w-[60px]"
-                  style={{ backgroundColor: LIGHT_BLUE }}
-                >
-                  <FactIcon
-                    className="h-[18px] w-[18px] sm:h-6 sm:w-6"
-                    strokeWidth={1.5}
-                    style={{ color: DEEP_NAVY }}
-                  />
-                </span>
-                <div className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center sm:min-h-[56px] sm:pt-1">
-                  <p
-                    className="m-0 mb-1 text-[10px] font-semibold uppercase leading-[1.3] tracking-[1.3px] sm:mb-1.5 sm:text-[11px] sm:tracking-[1.6px] 2xl:text-[11.5px] 2xl:tracking-[1.8px]"
-                    style={{ color: TEXT_CHARCOAL, opacity: 0.55 }}
-                  >
-                    {fact.label}
-                  </p>
-                  <p className="m-0 break-words text-[13.5px] font-bold leading-[1.35] sm:text-[15px] 2xl:text-[16px]" style={{ color: DEEP_NAVY }}>
-                    {fact.value}
-                  </p>
-                </div>
+      {/* ================= Overview ================= */}
+      <section
+        id="overview"
+        className="relative w-full overflow-hidden bg-white px-4 py-10 sm:px-8 sm:py-16 md:px-10 lg:px-12 lg:py-20 xl:px-16 xl:py-24"
+        style={{ fontFamily: FONT }}
+      >
+        <div className="relative mx-auto grid max-w-[1500px] grid-cols-1 items-stretch gap-7 sm:gap-10 lg:grid-cols-2 lg:gap-8 xl:grid-cols-[1fr_0.9fr_1.15fr]">
+          {/* ---------- Text column ---------- */}
+          <div className="min-w-0">
+            <FadeUp>
+              <div className="mb-3 flex items-center gap-3 sm:mb-5">
+                <SectionEyebrow>{project.eyebrow || 'More than just a home'}</SectionEyebrow>
               </div>
-            )
-          })}
+            </FadeUp>
+
+            <RevealText
+              as="h2"
+              className="mb-3 text-[26px] font-semibold leading-[1.15] tracking-tight text-[#1f2029] sm:mb-5 sm:text-[36px] sm:leading-[1.12] md:text-[44px] lg:text-[42px] xl:text-[46px] 2xl:text-[52px]"
+              text={
+                <>
+                  {project.heading?.[0] || 'Designed for a'}
+                  <br />
+                  <span style={{ color: DEEP_NAVY }}>{project.heading?.[1] || 'Better Way of Life'}</span>
+                </>
+              }
+              delay={0.1}
+            />
+
+            <FadeUp delay={0.2}>
+              <p
+                className="mb-5 max-w-[610px] text-[13.5px] leading-[1.75] sm:mb-8 sm:text-[15px] sm:leading-[1.85] md:text-base"
+                style={{ color: TEXT_CHARCOAL }}
+              >
+                {project.description}
+              </p>
+            </FadeUp>
+
+            <FadeUp delay={0.3}>
+              <div className="mb-1 flex flex-wrap items-center gap-2.5 sm:gap-3 lg:mb-0 xl:mb-8">
+                {hasBrochure && (
+                  <AccentOutlineButton onClick={openBrochure} icon={Download}>
+                    Download Brochure
+                  </AccentOutlineButton>
+                )}
+                <AccentOutlineButton href="tel:+919543633333" icon={Phone}>
+                  Call Us
+                </AccentOutlineButton>
+              </div>
+            </FadeUp>
+          </div>
+
+          {/* ---------- Image column ---------- */}
+          <FadeUp
+            delay={0.15}
+            className="relative min-w-0 lg:min-h-[480px] xl:min-h-[420px] xl:h-full"
+          >
+            <img
+              src={project.aboutImage}
+              alt={project.name || 'Project'}
+              className="h-auto w-full rounded-[14px] object-cover shadow-[0_24px_60px_-28px_rgba(0,0,0,0.35)] sm:rounded-[16px] lg:absolute lg:inset-0 lg:h-full"
+            />
+          </FadeUp>
+
+          {/* ---------- Quick facts card ---------- */}
+          <FadeUp delay={0.25} amount={0.1} className="min-w-0 lg:col-span-2 xl:col-span-1 xl:h-full">
+            <div className="relative flex h-full w-full flex-col justify-center rounded-[18px] border border-[#E0E8F0] bg-white px-4 py-2 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.18)] sm:rounded-[22px] sm:px-6 sm:py-6 md:px-7 md:py-8 xl:px-6 xl:py-10 2xl:px-7">
+              <div className="pointer-events-none absolute bottom-8 left-1/2 top-8 hidden w-px -translate-x-1/2 bg-[#E8EFF7] sm:block" />
+              <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+                {quickFacts.map((fact, i) => {
+                  const FactIcon = factIconMap[fact.icon] || getFactIcon(fact.label)
+                  const isRight = i % 2 === 1
+                  const isLastRow = i >= lastRowStart
+
+                  // RERA card -> opens this project's RERA certificate PDF (public/rera/...) in a new tab
+                  const isRera = fact.icon === 'rera' || /rera/i.test(fact.label || '')
+                  const factHref = fact.href || (isRera ? reraPdfUrl : '')
+
+                  const factInner = (
+                    <>
+                      <span
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors duration-200 sm:h-[56px] sm:w-[56px] sm:rounded-2xl xl:h-[52px] xl:w-[52px] 2xl:h-[60px] 2xl:w-[60px]"
+                        style={{ backgroundColor: LIGHT_BLUE }}
+                      >
+                        <FactIcon
+                          className="h-[18px] w-[18px] sm:h-6 sm:w-6"
+                          strokeWidth={1.5}
+                          style={{ color: DEEP_NAVY }}
+                        />
+                      </span>
+                      <div className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center sm:min-h-[56px] sm:pt-1">
+                        <p
+                          className="m-0 mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase leading-[1.3] tracking-[1.3px] sm:mb-1.5 sm:text-[11px] sm:tracking-[1.6px] 2xl:text-[11.5px] 2xl:tracking-[1.8px]"
+                          style={{ color: TEXT_CHARCOAL, opacity: 0.55 }}
+                        >
+                          {fact.label}
+                        </p>
+                        <p
+                          className={`m-0 break-words text-[13.5px] font-bold leading-[1.35] sm:text-[15px] 2xl:text-[16px] ${
+                            factHref ? 'underline decoration-dotted decoration-1 underline-offset-[3px] group-hover/rera:decoration-solid' : ''
+                          }`}
+                          style={{ color: DEEP_NAVY }}
+                        >
+                          {fact.value}
+                        </p>
+                        {factHref && (
+                          <span
+                            className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold sm:text-[11.5px]"
+                            style={{ color: DEEP_NAVY, opacity: 0.75 }}
+                          >
+                            View certificate
+                            <ExternalLink className="h-3 w-3" strokeWidth={2.25} />
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )
+
+                  const rowClass = `flex min-w-0 items-start gap-3 border-b border-[#E8EFF7] py-3.5 sm:gap-4 sm:py-6 xl:py-7 ${
+                    isLastRow ? 'sm:border-b-0' : ''
+                  } ${i === factsCount - 1 ? 'border-b-0' : ''} ${isRight ? 'sm:pl-6' : 'sm:pr-4'}`
+
+                  return factHref ? (
+                    <a
+                      key={i}
+                      href={factHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`View ${fact.label} certificate (PDF)`}
+                      aria-label={`View ${project.name || ''} ${fact.label} certificate (PDF)`}
+                      className={`group/rera ${rowClass} cursor-pointer no-underline`}
+                    >
+                      {factInner}
+                    </a>
+                  ) : (
+                    <div key={i} className={rowClass}>
+                      {factInner}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </FadeUp>
         </div>
-      </div>
-    </FadeUp>
-  </div>
-</section>
+      </section>
 
       {/* ================= Amenities ================= */}
       {amenityTabs.length > 0 && (
         <section ref={amenitiesRef} id="amenities" className="relative w-full overflow-hidden bg-white px-4 py-10 sm:px-8 sm:py-20 md:px-10 lg:px-16 lg:py-24" style={{ fontFamily: FONT }}>
-          {/* decorative glow: radial-gradient instead of a blur() filter (large CSS blurs make iOS Safari flicker sticky bars) */}
           <div
             className="pointer-events-none absolute -bottom-40 -left-40 h-[420px] w-[420px] rounded-full"
             style={{ background: 'radial-gradient(circle, rgba(15,58,107,0.07) 0%, rgba(15,58,107,0) 70%)' }}
@@ -2870,7 +2983,6 @@ export default function ProjectBanner({ project }) {
       {/* ================= Pricing & Availability ================= */}
       {plotRows.length > 0 && (
         <section ref={plotPricingRef} id="price-list" className="relative w-full overflow-hidden bg-gradient-to-b from-[#F7FAFD] via-white to-[#F7FAFD] px-4 py-10 sm:px-8 sm:py-16 md:px-10 lg:px-14 lg:py-24" style={{ fontFamily: FONT }}>
-          {/* decorative glow: radial-gradient instead of a blur() filter */}
           <div
             className="pointer-events-none absolute -top-20 left-1/3 h-[380px] w-[380px] rounded-full"
             style={{ background: 'radial-gradient(circle, rgba(15,58,107,0.07) 0%, rgba(15,58,107,0) 70%)' }}
@@ -2972,15 +3084,29 @@ export default function ProjectBanner({ project }) {
                         )
                       })}
                     </div>
+
+                    {/* Pre-launch offer note — Privana only */}
+                    {offerNote && (
+                      <span
+                        className="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700 sm:px-3.5 sm:py-2 sm:text-[12.5px]"
+                      >
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                        </span>
+                        <Tag className="h-3.5 w-3.5" strokeWidth={2.25} />
+                        {offerNote}
+                      </span>
+                    )}
                   </div>
 
                   {isUnits ? (
                     <>
                       <div className="overflow-hidden rounded-xl border border-[#E8EFF7] sm:rounded-2xl">
                         <div className="max-h-[460px] overflow-y-auto overscroll-contain [scrollbar-color:#C9D8E8_transparent] [scrollbar-width:thin] sm:max-h-[520px]">
-                          <div className={`sticky top-0 z-[2] hidden items-center gap-4 border-b border-[#E3ECF5] px-4 py-3 sm:grid ${UNIT_GRID_COLS}`} style={{ backgroundColor: '#E8F0F9' }}>
-                            {UNIT_TABLE_HEADERS.map((header, i) => (
-                              <span key={i} className={`text-[12px] font-semibold ${i === UNIT_TABLE_HEADERS.length - 1 ? 'text-right' : ''}`} style={{ color: DEEP_NAVY }}>
+                          <div className={`sticky top-0 z-[2] hidden items-center gap-4 border-b border-[#E3ECF5] px-4 py-3 sm:grid ${unitGridCols}`} style={{ backgroundColor: '#E8F0F9' }}>
+                            {unitTableHeaders.map((header, i) => (
+                              <span key={i} className={`text-[12px] font-semibold ${i === unitTableHeaders.length - 1 ? 'text-right' : ''}`} style={{ color: DEEP_NAVY }}>
                                 {header}
                               </span>
                             ))}
@@ -3000,6 +3126,7 @@ export default function ProjectBanner({ project }) {
                                 <UnitRow
                                   key={row.id || row.flatNo || i}
                                   row={row}
+                                  hasOffer={hasOffer}
                                   onEnquire={() => openEnquire(project.name || '', `Flat ${row.flatNo}`)}
                                 />
                               ))}
@@ -3011,7 +3138,7 @@ export default function ProjectBanner({ project }) {
                       {filteredPlots.length > 0 && (
                         <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5 sm:mt-4 sm:gap-3">
                           <p className="m-0 text-[11px] sm:text-[12px]" style={{ color: TEXT_CHARCOAL, opacity: 0.65 }}>
-                            Showing {shownUnits.length} of {filteredPlots.length} units · Final price includes car park, registration &amp; GST
+                            Showing {shownUnits.length} of {filteredPlots.length} units · {plotPricingNote}
                           </p>
                           <div className="flex items-center gap-2">
                             {canCollapseUnits && (

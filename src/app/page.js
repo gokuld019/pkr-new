@@ -1,7 +1,6 @@
 // src/app/page.js
 import HeroBanner from "@/components/hero-banner";
 import AboutStats from "@/components/aboutus";
-import VisionMission from "@/components/mission";
 import OurProjects from "@/components/ongoingprojects";
 import Testimonials from "@/components/testimonials";
 import OurBlogs from "@/components/blogs";
@@ -16,9 +15,11 @@ export default function Home() {
       
       <OurProjects />
       <AboutStats />
-      <Testimonials />
+            <SocialFeedSection />
+
+      
       <OurBlogs />
-      <SocialFeedSection />
+      <Testimonials />
     </main>
   );
 }

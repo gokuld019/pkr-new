@@ -16,14 +16,42 @@ export default function PromoPopup() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const alreadyShown = sessionStorage.getItem("pkrPromoShown");
-    if (!alreadyShown) {
-      const timer = setTimeout(() => {
-        setOpen(true);
-        sessionStorage.setItem("pkrPromoShown", "1");
-      }, 800);
-      return () => clearTimeout(timer);
+    try {
+      if (sessionStorage.getItem("pkrPromoShown")) return;
+    } catch {
+      return;
     }
+
+    let cancelled = false;
+    const isMobile =
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches;
+    const targetSrc = isMobile ? MOBILE_IMAGE_URL : DESKTOP_IMAGE_URL;
+
+    const showPopup = () => {
+      if (cancelled) return;
+      setOpen(true);
+      try {
+        sessionStorage.setItem("pkrPromoShown", "1");
+      } catch {
+        /* noop */
+      }
+    };
+
+    const img = new window.Image();
+    img.decoding = "async";
+    img.src = targetSrc;
+
+    if (typeof img.decode === "function") {
+      img.decode().then(showPopup).catch(showPopup);
+    } else {
+      img.onload = showPopup;
+      img.onerror = showPopup;
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -38,137 +66,53 @@ export default function PromoPopup() {
   if (!open) return null;
 
   return (
-    <div className="popup-overlay" onClick={() => setOpen(false)}>
-      <div className="popup-modal" onClick={(e) => e.stopPropagation()}>
-        
-        {/* UPDATED: Replaced text '&times;' with a perfectly centered SVG icon */}
+    <div
+      className="popup-overlay fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-[14px] backdrop-blur-[2px] sm:p-4"
+      onClick={() => setOpen(false)}
+    >
+      <div
+        className="popup-modal relative max-h-[85vh] w-fit max-w-[92vw] overflow-hidden rounded-[10px] leading-[0] shadow-[0_20px_60px_rgba(0,0,0,0.35)] sm:max-h-[88vh] sm:rounded-[12px] md:max-h-[90vh] md:w-[1140px] md:max-w-[min(92vw,1140px)]"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
-          className="popup-close"
+          type="button"
+          className="popup-close absolute right-[10px] top-[10px] z-[2] flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-0 bg-white/92 p-0 text-[#222] transition-all duration-200 hover:scale-105 hover:bg-white sm:right-[13px] sm:top-[12px] sm:h-[34px] sm:w-[34px] md:right-4 md:top-[14px] md:h-9 md:w-9"
           aria-label="Close"
           onClick={() => setOpen(false)}
         >
-          <svg 
-            width="14" 
-            height="14" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2.5" 
-            strokeLinecap="round" 
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
             strokeLinejoin="round"
+            aria-hidden="true"
           >
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
 
-        <picture>
-          <source media="(max-width: 767px)" srcSet={MOBILE_IMAGE_URL} />
+        <picture className="block">
+          <source
+            media="(max-width: 767px)"
+            srcSet={MOBILE_IMAGE_URL}
+            width={720}
+            height={1053}
+          />
           <img
             src={DESKTOP_IMAGE_URL}
             alt="Promo offer"
-            className="popup-image"
+            width={1140}
+            height={513}
+            decoding="sync"
+            className="popup-image block h-auto max-h-[85vh] w-auto max-w-[92vw] object-contain sm:max-h-[88vh] md:max-h-[90vh] md:w-full md:max-w-full"
           />
         </picture>
       </div>
-
-      <style jsx>{`
-        .popup-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.6);
-          backdrop-filter: blur(2px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 9999;
-          padding: 14px;
-        }
-
-        .popup-modal {
-          position: relative;
-          width: fit-content;
-          max-width: 92vw;
-          max-height: 85vh;
-          border-radius: 10px;
-          overflow: hidden;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-          line-height: 0;
-        }
-
-        .popup-image {
-          display: block;
-          width: auto;
-          height: auto;
-          max-width: 92vw;
-          max-height: 85vh;
-          object-fit: contain;
-        }
-
-        .popup-close {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          border: none;
-          background: rgba(255, 255, 255, 0.92);
-          cursor: pointer;
-          z-index: 2;
-          color: #222;
-          
-          /* Flexbox ensures the SVG is perfectly centered */
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          transition: background 0.2s ease, transform 0.2s ease;
-        }
-        
-        .popup-close:hover {
-          background: #fff;
-          transform: scale(1.05);
-        }
-
-        @media (min-width: 480px) {
-          .popup-overlay {
-            padding: 16px;
-          }
-          .popup-modal {
-            border-radius: 12px;
-            max-height: 88vh;
-          }
-          .popup-image {
-            max-height: 88vh;
-          }
-          .popup-close {
-            top: 12px;
-            right: 13px;
-            width: 34px;
-            height: 34px;
-          }
-        }
-
-        @media (min-width: 768px) {
-          .popup-modal {
-            width: 1140px;
-            max-width: min(92vw, 1140px);
-            max-height: 90vh;
-          }
-          .popup-image {
-            width: 100%;
-            max-width: 100%;
-            max-height: 90vh;
-          }
-          .popup-close {
-            top: 14px;
-            right: 16px;
-            width: 36px;
-            height: 36px;
-          }
-        }
-      `}</style>
     </div>
   );
 }

@@ -32,8 +32,9 @@ const navItems = [
     basePath: "/projects/completed",
     projects: [
       { name: "PK's Paradise - T Nagar", slug: "pks-paradise-t-nagar" },
-      { name: "Premavathy Nagar - Maraimalai Nagar", slug: "premavathy-nagar-maraimalai-nagar" },
       { name: "Little India", slug: "little-india" },
+      { name: "Premavathy Nagar - Maraimalai Nagar", slug: "premavathy-nagar-maraimalai-nagar" },
+      
       { name: "Aditi Gardenz - SP Koil", slug: "aditi-gardenz-sp-koil" },
       { name: "Aditi Gardenz - Veppampattu", slug: "aditi-gardenz-veppampattu" },
     ],

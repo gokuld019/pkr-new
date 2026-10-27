@@ -1,15 +1,8 @@
 "use client";
 
-import { useRef } from "react";
-import { Geist } from "next/font/google";
+import { useRef, useEffect } from "react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useGSAP } from "@gsap/react";
 import { Star, Quote, ArrowRight } from "lucide-react";
-
-gsap.registerPlugin(ScrollTrigger, useGSAP);
-
-const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
 
 const DEEP_NAVY = "#0F3A6B";
 const DEEP_NAVY_HOVER = "#0A2B50";
@@ -41,157 +34,149 @@ const REVIEWS = [
 export default function ClientReviews() {
   const root = useRef(null);
 
-  useGSAP(
-    () => {
-      const tl = gsap.timeline({
-        defaults: { ease: "power3.out" },
-        scrollTrigger: { trigger: ".gs-head", start: "top 85%", once: true },
-      });
+  useEffect(() => {
+    const section = root.current;
+    if (!section) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-      tl.fromTo(
-        ".gs-eyebrow",
-        { opacity: 0, y: 10 },
-        { opacity: 1, y: 0, duration: 0.35, clearProps: "transform,opacity" }
-      )
-        .fromTo(
-          ".gs-title-word",
-          { yPercent: 110, opacity: 0 },
-          {
-            yPercent: 0,
-            opacity: 1,
-            duration: 0.55,
-            stagger: 0.06,
-            ease: "power4.out",
-            clearProps: "transform,opacity",
+    const observers = [];
+    const ctx = gsap.context(() => {
+      const head = section.querySelector(".gs-head");
+      if (head && typeof IntersectionObserver !== "undefined") {
+        const obs = new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((e) => e.isIntersecting)) return;
+            obs.disconnect();
+            const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+            tl.fromTo(
+              ".gs-eyebrow",
+              { opacity: 0, y: 10 },
+              { opacity: 1, y: 0, duration: 0.35, clearProps: "transform,opacity" }
+            )
+              .fromTo(
+                ".gs-title-word",
+                { yPercent: 110, opacity: 0 },
+                {
+                  yPercent: 0,
+                  opacity: 1,
+                  duration: 0.55,
+                  stagger: 0.06,
+                  ease: "power4.out",
+                  clearProps: "transform,opacity",
+                },
+                "-=0.2"
+              )
+              .fromTo(
+                ".gs-sub",
+                { y: 15, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.45, ease: "power3.out", clearProps: "transform,opacity" },
+                "-=0.3"
+              );
           },
-          "-=0.2"
-        )
-        .fromTo(
-          ".gs-sub",
-          { y: 15, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.45, ease: "power3.out", clearProps: "transform,opacity" },
-          "-=0.3"
+          { threshold: 0.15 }
         );
-
-      gsap.fromTo(
-        ".gs-side-word",
-        { x: -14, opacity: 0 },
-        {
-          x: 0,
-          opacity: 1,
-          duration: 0.4,
-          stagger: 0.04,
-          ease: "power3.out",
-          scrollTrigger: { trigger: ".gs-head", start: "top 85%", once: true },
-          clearProps: "transform,opacity",
-        }
-      );
-
-      gsap.fromTo(
-        ".gs-cursive",
-        { x: 15, opacity: 0 },
-        {
-          x: 0,
-          opacity: 1,
-          duration: 0.5,
-          ease: "power3.out",
-          scrollTrigger: { trigger: ".gs-head", start: "top 85%", once: true },
-          clearProps: "transform,opacity",
-        }
-      );
-
-      const gtl = gsap.timeline({
-        defaults: { ease: "power3.out" },
-        scrollTrigger: { trigger: ".gs-google", start: "top 90%", once: true },
-      });
-
-      gtl.fromTo(
-        ".gs-google",
-        { y: 25, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.5, ease: "power3.out", clearProps: "transform,opacity" }
-      )
-        .fromTo(
-          ".gs-google-item",
-          { y: 12, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.35, stagger: 0.05, ease: "power2.out", clearProps: "transform,opacity" },
-          "-=0.3"
-        )
-        .fromTo(
-          ".gs-star-big",
-          { scale: 0, opacity: 0 },
-          { scale: 1, opacity: 1, duration: 0.3, stagger: 0.04, ease: "back.out(2)", clearProps: "transform,opacity" },
-          "-=0.25"
-        );
-
-      const rating = root.current?.querySelector(".gs-rating");
-      if (rating) {
-        const obj = { v: 0 };
-        gtl.to(
-          obj,
-          {
-            v: 4.8,
-            duration: 0.8,
-            ease: "power2.out",
-            onUpdate: () => {
-              if (rating) rating.textContent = obj.v.toFixed(1);
-            },
-          },
-          "-=0.5"
-        );
+        obs.observe(head);
+        observers.push(obs);
       }
 
-      gsap.utils.toArray(".gs-card").forEach((card) => {
-        const ctl = gsap.timeline({
-          defaults: { ease: "power3.out" },
-          scrollTrigger: { trigger: card, start: "top 90%", once: true },
-        });
+      const googleBar = section.querySelector(".gs-google");
+      if (googleBar && typeof IntersectionObserver !== "undefined") {
+        const obs = new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((e) => e.isIntersecting)) return;
+            obs.disconnect();
+            const gtl = gsap.timeline({ defaults: { ease: "power3.out" } });
+            gtl
+              .fromTo(
+                ".gs-google",
+                { y: 25, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.5, ease: "power3.out", clearProps: "transform,opacity" }
+              )
+              .fromTo(
+                ".gs-google-item",
+                { y: 12, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.35, stagger: 0.05, ease: "power2.out", clearProps: "transform,opacity" },
+                "-=0.3"
+              )
+              .fromTo(
+                ".gs-star-big",
+                { scale: 0, opacity: 0 },
+                { scale: 1, opacity: 1, duration: 0.3, stagger: 0.04, ease: "back.out(2)", clearProps: "transform,opacity" },
+                "-=0.25"
+              );
 
-        ctl.fromTo(
-          card,
-          { y: 30, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.5, ease: "power3.out", clearProps: "transform,opacity" }
-        )
-          .fromTo(
-            card.querySelectorAll(".gs-star"),
-            { scale: 0, opacity: 0 },
-            { scale: 1, opacity: 1, duration: 0.25, stagger: 0.04, ease: "back.out(2)", clearProps: "transform,opacity" },
-            "-=0.3"
-          )
-          .fromTo(
-            card.querySelector(".gs-quote"),
-            { scale: 0.7, opacity: 0, rotate: -10 },
-            { scale: 1, opacity: 1, rotate: 0, duration: 0.35, ease: "power2.out", clearProps: "transform,opacity" },
-            "-=0.25"
-          )
-          .fromTo(
-            card.querySelectorAll(".gs-line"),
-            { y: 12, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.4, stagger: 0.06, ease: "power3.out", clearProps: "transform,opacity" },
-            "-=0.2"
-          );
+            const rating = section.querySelector(".gs-rating");
+            if (rating) {
+              const obj = { v: 0 };
+              gtl.to(
+                obj,
+                {
+                  v: 4.8,
+                  duration: 0.8,
+                  ease: "power2.out",
+                  onUpdate: () => {
+                    rating.textContent = obj.v.toFixed(1);
+                  },
+                },
+                "-=0.5"
+              );
+            }
+          },
+          { threshold: 0.15 }
+        );
+        obs.observe(googleBar);
+        observers.push(obs);
+      }
+
+      section.querySelectorAll(".gs-card").forEach((card) => {
+        if (typeof IntersectionObserver === "undefined") return;
+        const obs = new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((e) => e.isIntersecting)) return;
+            obs.disconnect();
+            const ctl = gsap.timeline({ defaults: { ease: "power3.out" } });
+            ctl
+              .fromTo(
+                card,
+                { y: 30, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.5, ease: "power3.out", clearProps: "transform,opacity" }
+              )
+              .fromTo(
+                card.querySelectorAll(".gs-star"),
+                { scale: 0, opacity: 0 },
+                { scale: 1, opacity: 1, duration: 0.25, stagger: 0.04, ease: "back.out(2)", clearProps: "transform,opacity" },
+                "-=0.3"
+              )
+              .fromTo(
+                card.querySelector(".gs-quote"),
+                { scale: 0.7, opacity: 0, rotate: -10 },
+                { scale: 1, opacity: 1, rotate: 0, duration: 0.35, ease: "power2.out", clearProps: "transform,opacity" },
+                "-=0.25"
+              )
+              .fromTo(
+                card.querySelectorAll(".gs-line"),
+                { y: 12, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.4, stagger: 0.06, ease: "power3.out", clearProps: "transform,opacity" },
+                "-=0.2"
+              );
+          },
+          { threshold: 0.15 }
+        );
+        obs.observe(card);
+        observers.push(obs);
       });
+    }, root);
 
-      gsap.fromTo(
-        ".gs-bottom > *",
-        { y: 12, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.4,
-          stagger: 0.08,
-          ease: "power3.out",
-          scrollTrigger: { trigger: ".gs-bottom", start: "top 92%", once: true },
-          clearProps: "transform,opacity",
-        }
-      );
-    },
-    { scope: root }
-  );
+    return () => {
+      observers.forEach((o) => o.disconnect());
+      ctx.revert();
+    };
+  }, []);
 
   return (
     <section
       ref={root}
-      className={`${geist.className} relative w-full overflow-hidden bg-white py-10 sm:py-16 md:py-20 lg:py-24`}
+      className="relative w-full overflow-hidden bg-white py-10 sm:py-16 md:py-20 lg:py-24"
     >
       <div className="relative mx-auto w-full max-w-[1800px] px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12">
         {/* Header */}

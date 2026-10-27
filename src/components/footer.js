@@ -1,44 +1,65 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useState } from "react";
 import { Geist } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { motion, MotionConfig } from "framer-motion";
 import {
   Mail,
   ArrowRight,
-  FileText,
-  Percent,
-  BookOpen,
+  ArrowUpRight,
   MapPin,
   Phone,
   Clock,
-  Users,
-  Sprout,
-  Building2,
-  Star,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
 
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
-
 const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
 
 const DEEP_NAVY = "#0F3A6B";
-const DEEP_NAVY_HOVER = "#0A2B50";
 const TEXT_CHARCOAL = "#2D3A46";
+const EASE = [0.22, 1, 0.36, 1];
 
 const SOCIAL_LINKS = {
   facebook: "https://www.facebook.com/pkrestates",
   instagram: "https://www.instagram.com/pkrestates",
-  linkedin: "https://www.linkedin.com/company/pkrestates",
+  linkedin: "https://www.linkedin.com/company/pkr-estates/",
   youtube: "https://www.youtube.com/@pkrestatesllp",
 };
+
+// Banking partner logos — files live in /public (PNG/SVG/WebP, ideally with a transparent background).
+// Each logo sits in a 330 × 92 tile. Only the logo is shown; `name` is used for the alt text.
+// Order on screen: SBI → Axis → Kotak
+// (logos-01.png = Axis, logos-02.png = Kotak, logos-03.png = SBI)
+const BANK_PARTNERS = [
+  { name: "State Bank of India", src: "/logos-03.png" },
+  { name: "Axis Bank", src: "/logos-01.png" },
+  { name: "Kotak Mahindra Bank", src: "/logos-02.png" },
+];
+
+const HELP_LINKS = [
+  { label: "Terms & Conditions", href: "/termsandconditions" },
+  { label: "Privacy Policy", href: "/privacypolicy" },
+];
+
+const EXPLORE_LINKS = [
+  { label: "Home", href: "/" },
+  { label: "About Us", href: "/aboutus" },
+  { label: "Ongoing Projects", href: "#" },
+  { label: "Gurudev", href: "/projects/gurudev", isSub: true },
+  { label: "Privana", href: "/projects/privana", isSub: true },
+  { label: "EMI Calculator", href: "/emicalculator" },
+  { label: "Contact Us", href: "/contactus" },
+];
+
+const SOCIALS = [
+  { name: "facebook", label: "Facebook" },
+  { name: "instagram", label: "Instagram" },
+  { name: "linkedin", label: "LinkedIn" },
+  { name: "youtube", label: "YouTube" },
+];
 
 const SOCIAL_ICONS = {
   facebook: (
@@ -55,387 +76,273 @@ const SOCIAL_ICONS = {
   ),
 };
 
-const EXPLORE_LINKS = [
-  { label: "Home", href: "/" },
-  { label: "About Us", href: "/aboutus" },
-  { label: "Ongoing Projects", href: "#" },
-  { label: "Gurudev", href: "/projects/gurudev", isSub: true },
-  { label: "Privana", href: "/projects/privana", isSub: true },
-  { label: "EMI Calculator", href: "/emicalculator" },
-  { label: "Contact Us", href: "/contactus" },
-];
+/* ------------------------------------------------------------------
+   MOTION
+   framer-motion's `whileInView` uses IntersectionObserver, so it tracks
+   the footer's real position even when the page above changes height
+   (the cause of the old "footer invisible until refresh" bug).
+   `once: true` → plays a single time, then stays visible.
+------------------------------------------------------------------ */
+const stagger = (gap = 0.08, delay = 0) => ({
+  hidden: {},
+  show: { transition: { staggerChildren: gap, delayChildren: delay } },
+});
+
+const rise = {
+  hidden: { opacity: 0, y: 22, filter: "blur(8px)" },
+  show: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.8, ease: EASE },
+  },
+};
+
+const fade = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.9, ease: EASE } },
+};
+
+const IN_VIEW = { once: true, amount: 0.1 };
+
+// Shared link look: colour shift + an underline that draws in from the left
+const LINK_CLASS =
+  "bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat pb-0.5 text-[#2D3A46] transition-[background-size,color] duration-300 ease-out hover:bg-[length:100%_1px] hover:text-[#0F3A6B]";
 
 export default function Footer() {
-  const root = useRef(null);
   const [openSection, setOpenSection] = useState(null);
   const toggleSection = (key) => setOpenSection((cur) => (cur === key ? null : key));
 
-  useEffect(() => {
-    if (!root.current) return;
-
-    let played = false;
-    let tl;
-
-    const ctx = gsap.context(() => {
-      tl = gsap.timeline({
-        paused: true,
-        defaults: { ease: "power3.out" },
-      });
-
-      // NOTE: clearProps is limited to what GSAP animates. Using "all" would wipe
-      // React's inline styles (e.g. the CTA's backgroundColor) and make it invisible.
-      tl.fromTo(
-        ".ft-newsletter",
-        { y: 25, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.8, clearProps: "opacity,transform" }
-      ).fromTo(
-        ".ft-grid > *, .ft-mobile > *",
-        { y: 20, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.7,
-          stagger: 0.08,
-          ease: "power2.out",
-          clearProps: "opacity,transform",
-        },
-        "-=0.4"
-      );
-
-      // Fire as soon as the footer enters the viewport at all
-      ScrollTrigger.create({
-        trigger: root.current,
-        start: "top bottom",
-        once: true,
-        onEnter: () => {
-          if (played) return;
-          played = true;
-          tl.play();
-        },
-      });
-    }, root);
-
-    // Recalculate trigger positions after route/content/image changes
-    const refreshTimer = setTimeout(() => ScrollTrigger.refresh(), 300);
-
-    // Safety net: if the footer is already in view but the trigger never fired, play anyway
-    const fallbackTimer = setTimeout(() => {
-      if (played || !root.current) return;
-      const rect = root.current.getBoundingClientRect();
-      if (rect.top < window.innerHeight) {
-        played = true;
-        tl.play();
-      }
-    }, 1200);
-
-    return () => {
-      clearTimeout(refreshTimer);
-      clearTimeout(fallbackTimer);
-      ctx.revert();
-    };
-  }, []);
-
   return (
-    <footer ref={root} className={`${geist.className} relative w-full overflow-hidden bg-white`}>
-      <div className="relative mx-auto max-w-[1800px] px-4 pt-8 sm:px-6 sm:pt-12 md:px-8 lg:px-10 lg:pt-14">
-        {/* Newsletter row */}
-        <div className="ft-newsletter flex flex-col gap-4 border-b border-neutral-200 pb-6 sm:gap-8 sm:pb-10 lg:flex-row lg:items-center lg:justify-between">
-          <div className="lg:max-w-md">
-            <div className="flex items-center gap-3">
-              <span
-                className="text-[10px] font-semibold tracking-[0.18em] sm:text-xs sm:tracking-[0.25em]"
-                style={{ color: TEXT_CHARCOAL }}
-              >
-                STAY AHEAD
-              </span>
-            </div>
-            <h3
-              className="mt-1.5 text-base font-semibold leading-snug sm:mt-2 sm:text-2xl lg:text-3xl"
-              style={{ color: DEEP_NAVY }}
-            >
-              Get the latest updates{" "}
-              <br className="hidden sm:block" />
-              on our projects, offers &amp; insights.
-            </h3>
-          </div>
+    // reducedMotion="user": people who turn on "reduce motion" get the content without movement
+    <MotionConfig reducedMotion="user">
+      <footer className={`${geist.className} relative w-full overflow-hidden bg-white`}>
+        {/* soft brand glow + hairline at the top */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#0F3A6B]/25 to-transparent"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-40 left-1/2 h-[380px] w-[min(760px,100vw)] -translate-x-1/2 rounded-full"
+          style={{ background: "radial-gradient(closest-side, rgba(15,58,107,0.07), rgba(15,58,107,0))" }}
+        />
 
-          <div className="lg:max-w-sm">
-            <div className="flex items-center gap-2 rounded-full border border-neutral-300 py-1.5 pl-4 pr-1.5 sm:gap-3 sm:px-4 sm:py-2.5">
-              <Mail className="h-4 w-4 flex-shrink-0" style={{ color: DEEP_NAVY }} />
-              <input
-                type="email"
-                placeholder="Enter your email address"
-                className="min-w-0 flex-1 bg-transparent text-[13px] text-neutral-700 placeholder:text-neutral-400 focus:outline-none sm:text-sm"
-              />
-              <button
-                className="flex flex-shrink-0 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white transition-colors sm:px-5 sm:text-sm"
-                style={{ backgroundColor: DEEP_NAVY }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = DEEP_NAVY_HOVER)}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = DEEP_NAVY)}
-              >
-                Subscribe
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <p className="mt-2 pl-4 text-[11px] sm:pl-0 sm:text-xs" style={{ color: TEXT_CHARCOAL, opacity: 0.8 }}>
-              Be the first to know. No spam, ever.
-            </p>
-          </div>
-
-          {/* <div className="grid grid-cols-3 gap-4 sm:flex sm:items-center sm:gap-6">
-            <FooterBadge icon={FileText} label={"New\nProjects"} />
-            <span className="hidden h-10 w-px bg-neutral-200 sm:block" />
-            <FooterBadge icon={Percent} label={"Exclusive\nOffers"} />
-            <span className="hidden h-10 w-px bg-neutral-200 sm:block" />
-            <FooterBadge icon={BookOpen} label={"Expert\nInsights"} />
-          </div> */}
-        </div>
-
-        {/* ───────── MOBILE FOOTER (compact, collapsible) ───────── */}
-        <div className="ft-mobile py-6 sm:hidden">
-          {/* Logo + socials in one row */}
-          <div className="flex items-center justify-between gap-3">
-            <Image
-              src="/pkr-logo.png"
-              alt="PKR Estates"
-              width={180}
-              height={70}
-              priority
-              style={{ width: "auto" }}
-              className="h-9 object-contain object-left"
-            />
-            <div className="flex items-center gap-2">
-              <SocialIcon name="facebook" label="Facebook" href={SOCIAL_LINKS.facebook} />
-              <SocialIcon name="instagram" label="Instagram" href={SOCIAL_LINKS.instagram} />
-              <SocialIcon name="linkedin" label="LinkedIn" href={SOCIAL_LINKS.linkedin} />
-              <SocialIcon name="youtube" label="YouTube" href={SOCIAL_LINKS.youtube} />
-            </div>
-          </div>
-
-          <p
-            className="mt-3 text-[12.5px] leading-relaxed"
-            style={{ color: TEXT_CHARCOAL, opacity: 0.85 }}
+        <div className="relative mx-auto max-w-[1800px] px-4 pt-10 sm:px-6 sm:pt-14 md:px-8 lg:px-10 lg:pt-16">
+          {/* ───────── Banking partners ───────── */}
+          <motion.div
+            variants={stagger(0.1)}
+            initial="hidden"
+            whileInView="show"
+            viewport={IN_VIEW}
+            className="flex flex-col items-center gap-6 border-b border-neutral-200/80 pb-10 text-center sm:gap-9 sm:pb-14"
           >
-            Creating thoughtfully designed homes and communities that enrich lives,
-            today and for generations to come.
-          </p>
+            <motion.div variants={rise}>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#0F3A6B]/10 bg-[#F5F8FC] px-3 py-1 text-[10px] font-semibold tracking-[0.2em] text-[#0F3A6B] sm:text-[11px] sm:tracking-[0.25em]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#0F3A6B]" />
+                OUR BANKING PARTNERS
+              </span>
+              <h3
+                className="mt-3 text-lg font-semibold leading-snug tracking-tight sm:mt-4 sm:text-2xl lg:text-[32px] lg:leading-tight"
+                style={{ color: DEEP_NAVY }}
+              >
+                Trusted banks,{" "}
+                <br className="hidden sm:block" />
+                <span className="text-[#2D3A46]/70">easier home loan approvals.</span>
+              </h3>
+            </motion.div>
 
-          {/* Quick actions */}
-          <div className="mt-4 grid grid-cols-2 gap-2.5">
-            <a
-              href="tel:+919543633333"
-              className="flex items-center justify-center gap-2 rounded-full border py-2.5 text-[13px] font-semibold"
-              style={{ borderColor: "rgba(15, 58, 107, 0.25)", color: DEEP_NAVY }}
+            <motion.ul
+              variants={stagger(0.1)}
+              className="grid w-full max-w-[400px] grid-cols-3 justify-items-center gap-2 sm:max-w-[560px] sm:gap-3 md:max-w-[1030px] md:gap-5"
             >
-              <Phone className="h-4 w-4" />
-              Call us
-            </a>
-            <a
-              href="mailto:pkr@pkrestates.com"
-              className="flex items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold text-white"
-              style={{ backgroundColor: DEEP_NAVY }}
-            >
-              <Mail className="h-4 w-4" />
-              Email us
-            </a>
-          </div>
+              {BANK_PARTNERS.map((bank) => (
+                <motion.li
+                  key={bank.name}
+                  variants={rise}
+                  whileHover={{ y: -4 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                  className="relative aspect-[3/2] w-full max-w-[330px] rounded-xl bg-[#F5F8FC] sm:aspect-[330/100] sm:rounded-2xl md:aspect-[330/92] ring-1 ring-[#E3EAF3] transition-[background-color,box-shadow] duration-300 hover:bg-white hover:shadow-[0_18px_36px_-18px_rgba(15,58,107,0.35)] hover:ring-[#D5E1ED]"
+                >
+                  <Image
+                    src={bank.src}
+                    alt={bank.name}
+                    fill
+                    sizes="(min-width: 1110px) 330px, (min-width: 768px) 30vw, 140px"
+                    className="object-contain p-3 sm:p-4 md:p-6"
+                  />
+                </motion.li>
+              ))}
+            </motion.ul>
+          </motion.div>
 
-          {/* Collapsible sections */}
-          <div className="mt-5 border-t border-neutral-200">
-            <FooterAccordion
-              title="EXPLORE"
-              open={openSection === "explore"}
-              onToggle={() => toggleSection("explore")}
+          {/* ───────── MOBILE FOOTER (compact, collapsible) ───────── */}
+          <motion.div
+            variants={stagger(0.07)}
+            initial="hidden"
+            whileInView="show"
+            viewport={IN_VIEW}
+            className="py-7 sm:hidden"
+          >
+            <motion.div variants={rise} className="flex items-center justify-between gap-3">
+              <Image
+                src="/pkr-logo.png"
+                alt="PKR Estates"
+                width={180}
+                height={70}
+                style={{ width: "auto" }}
+                className="h-9 min-w-0 shrink object-contain object-left"
+              />
+              <SocialRow />
+            </motion.div>
+
+            <motion.p
+              variants={rise}
+              className="mt-3 text-[12.5px] leading-relaxed"
+              style={{ color: TEXT_CHARCOAL, opacity: 0.8 }}
             >
-              <ul className="flex flex-col gap-2.5">
+              Creating thoughtfully designed homes and communities that enrich lives,
+              today and for generations to come.
+            </motion.p>
+
+            <motion.div variants={rise} className="mt-4 grid grid-cols-2 gap-2.5">
+              <a
+                href="tel:+919381055555"
+                className="flex items-center justify-center gap-2 rounded-full border border-[#0F3A6B]/20 py-2.5 text-[13px] font-semibold text-[#0F3A6B] transition active:scale-[0.97]"
+              >
+                <Phone className="h-4 w-4" />
+                Call us
+              </a>
+              <a
+                href="mailto:pkr@pkrestates.com"
+                className="flex items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold text-white shadow-[0_10px_22px_-12px_rgba(15,58,107,0.8)] transition active:scale-[0.97]"
+                style={{ background: `linear-gradient(135deg, ${DEEP_NAVY} 0%, #0A2B50 100%)` }}
+              >
+                <Mail className="h-4 w-4" />
+                Email us
+              </a>
+            </motion.div>
+
+            <motion.div variants={rise} className="mt-6 border-t border-neutral-200/80">
+              <FooterAccordion title="EXPLORE" open={openSection === "explore"} onToggle={() => toggleSection("explore")}>
+                <ul className="flex flex-col gap-2.5">
+                  {EXPLORE_LINKS.map((link) => (
+                    <li key={link.label}>
+                      <ExploreLink link={link} />
+                    </li>
+                  ))}
+                </ul>
+              </FooterAccordion>
+
+              <FooterAccordion title="HELP & SUPPORT" open={openSection === "help"} onToggle={() => toggleSection("help")}>
+                <ul className="flex flex-col gap-2.5">
+                  {HELP_LINKS.map((l) => (
+                    <li key={l.label}>
+                      <Link href={l.href} className={`text-[13px] ${LINK_CLASS}`}>
+                        {l.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </FooterAccordion>
+
+              <FooterAccordion title="VISIT US" open={openSection === "visit"} onToggle={() => toggleSection("visit")}>
+                <div className="flex flex-col gap-3.5">
+                  <ContactRow icon={MapPin}>
+                    Flat A10, Archana Castle, 4/23 Patrick Church Road, St. Thomas Mount,
+                    Chennai – 600 016, Tamil Nadu, India
+                  </ContactRow>
+                  <ContactRow icon={Clock}>
+                    Mon – Sun: 9:30 AM – 6:00 PM
+                    <br />
+                    Tuesday: Holiday
+                  </ContactRow>
+                </div>
+              </FooterAccordion>
+            </motion.div>
+
+            <motion.div variants={rise}>
+              <Link
+                href="/contactus"
+                className="group mt-6 flex items-center justify-between rounded-2xl px-5 py-4 text-[13px] font-semibold text-white shadow-[0_18px_36px_-18px_rgba(15,58,107,0.8)] transition active:scale-[0.98]"
+                style={{ background: `linear-gradient(135deg, ${DEEP_NAVY} 0%, #0A2B50 100%)` }}
+              >
+                <span>Have a question? Get in Touch</span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15">
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              </Link>
+            </motion.div>
+          </motion.div>
+
+          {/* ───────── TABLET / DESKTOP FOOTER GRID ─────────
+              sm  (640+)   : 2 columns
+              md  (768+)   : 3 columns
+              lg  (1024+)  : 4 columns (brand on its own row)
+              xl  (1280+)  : original 5-column desktop layout            */}
+          <motion.div
+            variants={stagger(0.09)}
+            initial="hidden"
+            whileInView="show"
+            viewport={IN_VIEW}
+            className="hidden gap-x-8 gap-y-9 py-10 sm:grid sm:grid-cols-2 sm:py-14 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-10 xl:grid-cols-5"
+          >
+            {/* Brand */}
+            <motion.div
+              variants={rise}
+              className="flex flex-col items-start sm:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-1"
+            >
+              <Image
+                src="/pkr-logo.png"
+                alt="PKR Estates"
+                width={180}
+                height={70}
+                style={{ width: "auto" }}
+                className="h-9 object-contain object-left sm:h-11"
+              />
+              <p
+                className="mt-5 max-w-xs text-sm leading-relaxed sm:max-w-md xl:max-w-xs"
+                style={{ color: TEXT_CHARCOAL, opacity: 0.8 }}
+              >
+                Creating thoughtfully designed homes and communities that enrich lives,
+                today and for generations to come.
+              </p>
+              <div className="mt-5">
+                <SocialRow />
+              </div>
+            </motion.div>
+
+            {/* Explore */}
+            <motion.div variants={rise} className="min-w-0">
+              <ColumnTitle>EXPLORE</ColumnTitle>
+              <ul className="mt-5 flex flex-col gap-3">
                 {EXPLORE_LINKS.map((link) => (
                   <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="flex items-center text-[13px]"
-                      style={{ color: TEXT_CHARCOAL, opacity: link.isSub ? 0.75 : 1 }}
-                    >
-                      {link.isSub && (
-                        <ChevronRight
-                          className="mr-1 h-3.5 w-3.5 shrink-0"
-                          strokeWidth={2.5}
-                          style={{ color: DEEP_NAVY, opacity: 0.7 }}
-                        />
-                      )}
-                      <span>{link.label}</span>
+                    <ExploreLink link={link} desktop />
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+
+            {/* Help & Support */}
+            <motion.div variants={rise} className="min-w-0">
+              <ColumnTitle>HELP &amp; SUPPORT</ColumnTitle>
+              <ul className="mt-5 flex flex-col gap-3">
+                {HELP_LINKS.map((link) => (
+                  <li key={link.label}>
+                    <Link href={link.href} className={`text-sm ${LINK_CLASS}`}>
+                      {link.label}
                     </Link>
                   </li>
                 ))}
               </ul>
-            </FooterAccordion>
+            </motion.div>
 
-            <FooterAccordion
-              title="HELP & SUPPORT"
-              open={openSection === "help"}
-              onToggle={() => toggleSection("help")}
-            >
-              <ul className="flex flex-col gap-2.5">
-                {["Terms & Conditions", "Privacy Policy"].map((l) => (
-                  <li key={l}>
-                    <a href="#" className="text-[13px]" style={{ color: TEXT_CHARCOAL }}>
-                      {l}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </FooterAccordion>
-
-            <FooterAccordion
-              title="VISIT US"
-              open={openSection === "visit"}
-              onToggle={() => toggleSection("visit")}
-            >
-              <div className="flex flex-col gap-3.5">
-                <div className="flex items-start gap-3">
-                  <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: DEEP_NAVY }} />
-                  <span className="text-[13px] leading-relaxed" style={{ color: TEXT_CHARCOAL }}>
-                    Flat A10, Archana Castle, 4/23 Patrick Church Road,
-                    St. Thomas Mount, Chennai – 600 016, Tamil Nadu, India
-                  </span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Clock className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: DEEP_NAVY }} />
-                  <span className="text-[13px] leading-relaxed" style={{ color: TEXT_CHARCOAL }}>
-                    Mon – Sun: 9:30 AM – 6:00 PM
-                    <br />
-                    Tuesday: Holiday
-                  </span>
-                </div>
-              </div>
-            </FooterAccordion>
-          </div>
-
-          {/* CTA */}
-          <Link
-            href="/contactus"
-            className="mt-5 flex items-center justify-between rounded-2xl px-5 py-3.5 text-[13px] font-semibold text-white"
-            style={{ backgroundColor: DEEP_NAVY }}
-          >
-            <span>Have a question? Get in Touch</span>
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-
-        {/* ───────── DESKTOP / TABLET FOOTER GRID ───────── */}
-        <div className="ft-grid hidden gap-7 py-8 sm:grid sm:grid-cols-2 sm:gap-10 sm:py-12 lg:grid-cols-5">
-          {/* Brand */}
-          <div className="flex flex-col items-start sm:col-span-2 lg:col-span-1">
-            <Image
-              src="/pkr-logo.png"
-              alt="PKR Estates"
-              width={180}
-              height={70}
-              priority
-              style={{ width: "auto" }}
-              className="h-9 object-contain object-left sm:h-11"
-            />
-
-            {/* <div
-              className="mt-3 text-[11px] font-bold tracking-[0.13em] sm:mt-4 sm:text-xs sm:tracking-[0.15em]"
-              style={{ color: DEEP_NAVY }}
-            >
-              SPACES FOR A
-              <br />
-              BRIGHTER TOMORROW
-            </div> */}
-
-            <p
-              className="mt-4 max-w-[18rem] text-[12.5px] leading-relaxed sm:mt-5 sm:max-w-xs sm:text-sm"
-              style={{ color: TEXT_CHARCOAL, opacity: 0.85 }}
-            >
-              Creating thoughtfully designed homes and communities that enrich lives,
-              today and for generations to come.
-            </p>
-
-            <div className="mt-4 flex items-center gap-2 sm:mt-5 sm:gap-2.5">
-              <SocialIcon
-                name="facebook"
-                label="Facebook"
-                href={SOCIAL_LINKS.facebook}
-              />
-              <SocialIcon
-                name="instagram"
-                label="Instagram"
-                href={SOCIAL_LINKS.instagram}
-              />
-              <SocialIcon
-                name="linkedin"
-                label="LinkedIn"
-                href={SOCIAL_LINKS.linkedin}
-              />
-              <SocialIcon
-                name="youtube"
-                label="YouTube"
-                href={SOCIAL_LINKS.youtube}
-              />
-            </div>
-          </div>
-
-          {/* Explore — mirrors Navbar links */}
-          <div>
-            <h4
-              className="text-[11px] font-bold tracking-[0.18em] sm:text-xs sm:tracking-[0.2em]"
-              style={{ color: DEEP_NAVY }}
-            >
-              EXPLORE
-            </h4>
-            <ul className="mt-4 flex flex-col gap-2.5 sm:mt-5 sm:gap-3">
-              {EXPLORE_LINKS.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="group flex items-center text-[13px] transition-colors sm:text-sm"
-                    style={{
-                      color: TEXT_CHARCOAL,
-                      opacity: link.isSub ? 0.75 : 1,
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = DEEP_NAVY)}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = TEXT_CHARCOAL)}
-                  >
-                    {link.isSub && (
-                      <ChevronRight
-                        className="mr-1 h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
-                        strokeWidth={2.5}
-                        style={{ color: DEEP_NAVY, opacity: 0.7 }}
-                      />
-                    )}
-                    <span>{link.label}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Help & Support */}
-          <FooterColumn
-            title="HELP & SUPPORT"
-            links={["Terms & Conditions", "Privacy Policy"]}
-          />
-
-          {/* Get in touch */}
-          <div>
-            <h4
-              className="text-[11px] font-bold tracking-[0.18em] sm:text-xs sm:tracking-[0.2em]"
-              style={{ color: DEEP_NAVY }}
-            >
-              GET IN TOUCH
-            </h4>
-
-            <div className="mt-4 flex flex-col gap-3.5 sm:mt-5 sm:gap-4">
-              <div className="flex items-start gap-3">
-                <MapPin
-                  className="mt-0.5 h-4 w-4 flex-shrink-0"
-                  style={{ color: DEEP_NAVY }}
-                />
-                <span
-                  className="text-[13px] leading-relaxed sm:text-sm"
-                  style={{ color: TEXT_CHARCOAL }}
-                >
+            {/* Get in touch */}
+            <motion.div variants={rise} className="min-w-0">
+              <ColumnTitle>GET IN TOUCH</ColumnTitle>
+              <div className="mt-5 flex flex-col gap-4">
+                <ContactRow icon={MapPin}>
                   Flat A10, Archana Castle,
                   <br />
                   4/23 Patrick Church Road,
@@ -443,275 +350,186 @@ export default function Footer() {
                   St. Thomas Mount, Chennai – 600 016,
                   <br />
                   Tamil Nadu, India
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 flex-shrink-0" style={{ color: DEEP_NAVY }} />
-                <a
-                  href="tel:+919543633333"
-                  className="text-[13px] transition-colors sm:text-sm"
-                  style={{ color: TEXT_CHARCOAL }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = DEEP_NAVY)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = TEXT_CHARCOAL)}
-                >
-                  +91 93810 55555
-                </a>
-              </div>
-              <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 flex-shrink-0" style={{ color: DEEP_NAVY }} />
-                <a
-                  href="mailto:pkr@pkrestates.com"
-                  className="break-all text-[13px] transition-colors sm:text-sm"
-                  style={{ color: TEXT_CHARCOAL }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = DEEP_NAVY)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = TEXT_CHARCOAL)}
-                >
-                  pkr@pkrestates.com
-                </a>
-              </div>
-              <div className="flex items-start gap-3">
-                <Clock
-                  className="mt-0.5 h-4 w-4 flex-shrink-0"
-                  style={{ color: DEEP_NAVY }}
-                />
-                <span
-                  className="text-[13px] leading-relaxed sm:text-sm"
-                  style={{ color: TEXT_CHARCOAL }}
-                >
+                </ContactRow>
+                <ContactRow icon={Phone} center>
+                  <a href="tel:+919381055555" className={`whitespace-nowrap ${LINK_CLASS}`}>
+                    +91 93810 55555
+                  </a>
+                </ContactRow>
+                <ContactRow icon={Mail} center>
+                  <a href="mailto:pkr@pkrestates.com" className={`break-all ${LINK_CLASS}`}>
+                    pkr@pkrestates.com
+                  </a>
+                </ContactRow>
+                <ContactRow icon={Clock}>
                   Mon – Sun: 9:30 AM – 6:00 PM
                   <br />
                   Tuesday: Holiday
-                </span>
+                </ContactRow>
               </div>
+            </motion.div>
+
+            {/* CTA card */}
+            <motion.div variants={rise} className="min-w-0 md:col-span-3 lg:col-span-1">
+              <div className="relative overflow-hidden rounded-3xl bg-[#F5F8FC] p-6 ring-1 ring-[#E3EAF3]">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full"
+                  style={{ background: "radial-gradient(closest-side, rgba(15,58,107,0.12), rgba(15,58,107,0))" }}
+                />
+                <p className="relative text-base font-semibold leading-snug" style={{ color: DEEP_NAVY }}>
+                  Have a question or want to know more?
+                </p>
+                <p className="relative mt-1.5 text-sm leading-relaxed" style={{ color: TEXT_CHARCOAL, opacity: 0.75 }}>
+                  We&apos;re here to help.
+                </p>
+
+                <Link
+                  href="/contactus"
+                  className="group relative mt-5 inline-flex items-center gap-2 rounded-full py-2.5 pl-5 pr-2.5 text-sm font-semibold text-white shadow-[0_12px_26px_-12px_rgba(15,58,107,0.8)] transition-transform duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
+                  style={{ background: `linear-gradient(135deg, ${DEEP_NAVY} 0%, #0A2B50 100%)` }}
+                >
+                  Get in Touch
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition-transform duration-300 group-hover:rotate-45">
+                    <ArrowUpRight className="h-4 w-4" />
+                  </span>
+                </Link>
+              </div>
+            </motion.div>
+          </motion.div>
+        </div>
+
+        {/* ───────── Bottom bar ───────── */}
+        <motion.div
+          variants={fade}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.5 }}
+          className="border-t border-neutral-200/80 bg-white pb-[env(safe-area-inset-bottom)]"
+        >
+          <div className="mx-auto flex max-w-[1800px] flex-col items-center justify-between gap-2 px-4 py-4 text-center text-[11px] sm:px-6 sm:py-5 sm:text-sm md:flex-row md:gap-3 md:text-left lg:px-10">
+            <span style={{ color: TEXT_CHARCOAL, opacity: 0.75 }}>
+              © 2026 PKR ESTATES. All rights reserved.
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-x-4">
+              <Link href="/termsandconditions" className={LINK_CLASS}>
+                Terms &amp; Conditions
+              </Link>
+              <span className="text-neutral-300">|</span>
+              <Link href="/privacypolicy" className={LINK_CLASS}>
+                Privacy Policy
+              </Link>
+              <span className="text-neutral-300">|</span>
+              <a href="https://rera.tn.gov.in/" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+                RERA
+              </a>
             </div>
           </div>
+        </motion.div>
+      </footer>
+    </MotionConfig>
+  );
+}
 
-          {/* Let's build */}
-          <div className="relative sm:col-span-2 lg:col-span-1">
-            {/* <h4
-              className="text-[11px] font-bold leading-relaxed tracking-[0.18em] sm:text-xs sm:tracking-[0.2em]"
-              style={{ color: DEEP_NAVY }}
-            >
-              LET&apos;S BUILD
-              <br />A BRIGHTER
-              <br />
-              TOMORROW
-            </h4> */}
+/* ------------------------------------------------------------------ */
+/*  Small building blocks                                              */
+/* ------------------------------------------------------------------ */
 
-            <p
-              className="mt-3 max-w-xs text-[13px] leading-relaxed sm:mt-4 sm:text-sm"
-              style={{ color: TEXT_CHARCOAL }}
-            >
-              Have a question or want to know more? We&apos;re here to help.
-            </p>
+function ColumnTitle({ children }) {
+  return (
+    <h4 className="text-xs font-bold tracking-[0.2em]" style={{ color: DEEP_NAVY }}>
+      {children}
+    </h4>
+  );
+}
 
-            <Link
-              href="/contactus"
-              className="mt-4 inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-[13px] font-semibold transition-colors sm:mt-5 sm:text-sm"
-              style={{ borderColor: DEEP_NAVY, color: DEEP_NAVY }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = DEEP_NAVY;
-                e.currentTarget.style.color = "#FFFFFF";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-                e.currentTarget.style.color = DEEP_NAVY;
-              }}
-            >
-              Get in Touch
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </div>
+function ExploreLink({ link, desktop = false }) {
+  return (
+    <Link
+      href={link.href}
+      className={`group flex items-center ${desktop ? "text-sm" : "text-[13px]"}`}
+      style={{ opacity: link.isSub ? 0.8 : 1 }}
+    >
+      {link.isSub && (
+        <ChevronRight
+          className="mr-1 h-3.5 w-3.5 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5"
+          strokeWidth={2.5}
+          style={{ color: DEEP_NAVY, opacity: 0.7 }}
+        />
+      )}
+      <span className={LINK_CLASS}>{link.label}</span>
+    </Link>
+  );
+}
 
-      {/* Bottom bar */}
-      <div className="border-t border-neutral-200 bg-white">
-        <div
-          className="mx-auto flex max-w-[1800px] flex-col items-center justify-between gap-2 px-4 py-4 text-center text-[11px] sm:flex-row sm:gap-3 sm:px-6 sm:py-5 sm:text-sm sm:text-left lg:px-10"
-          style={{ color: TEXT_CHARCOAL }}
-        >
-          <span>© 2026 PKR ESTATES. All rights reserved.</span>
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-x-4 sm:gap-y-2">
-            <a
-              href="/termsandconditions"
-              className="transition-colors"
-              onMouseEnter={(e) => (e.currentTarget.style.color = DEEP_NAVY)}
-              onMouseLeave={(e) => (e.currentTarget.style.color = TEXT_CHARCOAL)}
-            >
-              Terms &amp; Conditions
-            </a>
-            <span className="text-neutral-300">|</span>
-            <a
-              href="/privacypolicy"
-              className="transition-colors"
-              onMouseEnter={(e) => (e.currentTarget.style.color = DEEP_NAVY)}
-              onMouseLeave={(e) => (e.currentTarget.style.color = TEXT_CHARCOAL)}
-            >
-              Privacy Policy
-            </a>
-            <span className="text-neutral-300">|</span>
-            <a
-  href="https://rera.tn.gov.in/"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="transition-colors"
-  onMouseEnter={(e) => (e.currentTarget.style.color = DEEP_NAVY)}
-  onMouseLeave={(e) => (e.currentTarget.style.color = TEXT_CHARCOAL)}
->
-  RERA
-</a>
-            {/* <span className="text-neutral-300">|</span>
-            <a
-              href="#"
-              className="transition-colors"
-              onMouseEnter={(e) => (e.currentTarget.style.color = DEEP_NAVY)}
-              onMouseLeave={(e) => (e.currentTarget.style.color = TEXT_CHARCOAL)}
-            >
-              Sitemap
-            </a> */}
-          </div>
-        </div>
-      </div>
-    </footer>
+function ContactRow({ icon: Icon, center = false, children }) {
+  return (
+    <div className={`flex gap-3 ${center ? "items-center" : "items-start"}`}>
+      <span
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F0F6FC] ${center ? "" : "-mt-0.5"}`}
+      >
+        <Icon className="h-3.5 w-3.5" style={{ color: DEEP_NAVY }} />
+      </span>
+      <span className="min-w-0 text-[13px] leading-relaxed sm:text-sm" style={{ color: TEXT_CHARCOAL }}>
+        {children}
+      </span>
+    </div>
   );
 }
 
 function FooterAccordion({ title, open, onToggle, children }) {
   return (
-    <div className="border-b border-neutral-200">
+    <div className="border-b border-neutral-200/80">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         className="flex w-full items-center justify-between py-3.5 text-left"
       >
-        <span
-          className="text-[11px] font-bold tracking-[0.18em]"
-          style={{ color: DEEP_NAVY }}
-        >
+        <span className="text-[11px] font-bold tracking-[0.18em]" style={{ color: DEEP_NAVY }}>
           {title}
         </span>
-        <ChevronDown
-          className="h-4 w-4 transition-transform duration-300"
-          style={{
-            color: DEEP_NAVY,
-            transform: open ? "rotate(180deg)" : "rotate(0deg)",
-          }}
-        />
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.3, ease: EASE }}>
+          <ChevronDown className="h-4 w-4" style={{ color: DEEP_NAVY }} />
+        </motion.span>
       </button>
-      <div
-        className="grid transition-all duration-300 ease-out"
-        style={{ gridTemplateRows: open ? "1fr" : "0fr", opacity: open ? 1 : 0 }}
+      <motion.div
+        initial={false}
+        animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
+        transition={{ duration: 0.35, ease: EASE }}
+        className="overflow-hidden"
       >
-        <div className="overflow-hidden">
-          <div className="pb-4">{children}</div>
-        </div>
-      </div>
+        <div className="pb-4">{children}</div>
+      </motion.div>
     </div>
   );
 }
 
-function FooterBadge({ icon: Icon, label }) {
+function SocialRow() {
   return (
-    <div className="flex flex-col items-center gap-2 text-center">
-      <span
-        className="flex h-10 w-10 items-center justify-center rounded-full border sm:h-11 sm:w-11"
-        style={{ borderColor: DEEP_NAVY, color: DEEP_NAVY }}
-      >
-        <Icon className="h-4 w-4" />
-      </span>
-      <span
-        className="whitespace-pre-line text-[11px] font-semibold leading-tight sm:text-xs"
-        style={{ color: TEXT_CHARCOAL }}
-      >
-        {label}
-      </span>
+    <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+      {SOCIALS.map((s) => (
+        <SocialIcon key={s.name} name={s.name} label={s.label} href={SOCIAL_LINKS[s.name]} />
+      ))}
     </div>
   );
 }
 
 function SocialIcon({ name, label, href }) {
   return (
-    <a
+    <motion.a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
-      className="flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 sm:h-9 sm:w-9"
-      style={{
-        borderColor: "rgba(15, 58, 107, 0.25)",
-        color: DEEP_NAVY,
-        backgroundColor: "transparent",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = DEEP_NAVY;
-        e.currentTarget.style.borderColor = DEEP_NAVY;
-        e.currentTarget.style.color = "#FFFFFF";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = "transparent";
-        e.currentTarget.style.borderColor = "rgba(15, 58, 107, 0.25)";
-        e.currentTarget.style.color = DEEP_NAVY;
-      }}
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.92 }}
+      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+      className="flex h-9 w-9 items-center justify-center rounded-full border border-[#0F3A6B]/20 text-[#0F3A6B] transition-colors duration-300 hover:border-[#0F3A6B] hover:bg-[#0F3A6B] hover:text-white hover:shadow-[0_10px_20px_-10px_rgba(15,58,107,0.8)]"
     >
       <svg viewBox="0 0 24 24" className="h-[15px] w-[15px] sm:h-4 sm:w-4" fill="currentColor">
         {SOCIAL_ICONS[name]}
       </svg>
-    </a>
-  );
-}
-
-function FooterColumn({ title, links }) {
-  return (
-    <div>
-      <h4
-        className="text-[11px] font-bold tracking-[0.18em] sm:text-xs sm:tracking-[0.2em]"
-        style={{ color: DEEP_NAVY }}
-      >
-        {title}
-      </h4>
-      <ul className="mt-4 flex flex-col gap-2.5 sm:mt-5 sm:gap-3">
-        {links.map((link) => (
-          <li key={link}>
-            <a
-              href="#"
-              className="text-[13px] transition-colors sm:text-sm"
-              style={{ color: TEXT_CHARCOAL }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = DEEP_NAVY)}
-              onMouseLeave={(e) => (e.currentTarget.style.color = TEXT_CHARCOAL)}
-            >
-              {link}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function StatItem({ icon: Icon, value, label }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Icon
-        className="h-6 w-6 shrink-0 sm:h-7 sm:w-7"
-        strokeWidth={1.5}
-        style={{ color: DEEP_NAVY }}
-      />
-      <div>
-        <div
-          className="text-lg font-bold sm:text-xl"
-          style={{ color: DEEP_NAVY }}
-        >
-          {value}
-        </div>
-        <div
-          className="text-[9.5px] font-medium tracking-wide sm:text-[10px]"
-          style={{ color: TEXT_CHARCOAL, opacity: 0.7 }}
-        >
-          {label}
-        </div>
-      </div>
-    </div>
+    </motion.a>
   );
 }
