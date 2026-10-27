@@ -13,7 +13,7 @@ const SLIDES = [
     alt: "Project amenities banner",
   },
   {
-    desktop: "/banners/privananew.webp",
+    desktop: "/banners/compr2.webp",
     desktopWidth: 1366,
     desktopHeight: 626,
     mobile: "/banners/2.webp",
@@ -22,7 +22,7 @@ const SLIDES = [
     alt: "Privana project banner",
   },
   {
-    desktop: "/banners/home-1.png",
+    desktop: "/banners/compr1.webp",
     desktopWidth: 1366,
     desktopHeight: 626,
     mobile: "/banners/mob1.webp",
