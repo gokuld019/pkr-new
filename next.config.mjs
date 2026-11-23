@@ -26,6 +26,23 @@ const nextConfig = {
   experimental: {
     inlineCss: true,
   },
+
+  // Dev-only proxy so the 360° viewer (WebGL) can load images from the API
+  // server without hitting CORS. `rewrites()` is not supported together with
+  // `output: 'export'`, so it is only added outside production builds.
+  // For production, add the CORS header on the API server (see notes).
+  ...(!isProd
+    ? {
+        async rewrites() {
+          return [
+            {
+              source: '/media-proxy/:path*',
+              destination: 'https://api.crazystory.in/storage/:path*',
+            },
+          ];
+        },
+      }
+    : {}),
 };
 
 export default nextConfig;

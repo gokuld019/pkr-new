@@ -35,7 +35,7 @@ const LIGHT_BLUE = '#E8F0F9'
 const LIGHT_BLUE_SOFT = '#F0F6FC'
 
 const LOGO_URL = '/logo.jpeg'
-const ENQUIRY_API = 'https://gurudev.pkrestates.com/backend/api/submit-enquiry'
+const ENQUIRY_API = 'https://api.crazystory.in/api/submit-enquiry'
 
 const WHATSAPP_NUMBER = '919381055555'
 
@@ -374,6 +374,88 @@ const UNIT_TABLE_HEADERS = ['Flat', 'Type', 'Facing & area', 'Price', '']
 const UNIT_GRID_COLS_OFFER = 'sm:grid-cols-[0.8fr_0.8fr_1.05fr_0.95fr_1.1fr_132px]'
 const UNIT_TABLE_HEADERS_OFFER = ['Flat', 'Type', 'Facing & area', 'Price', 'Offer Price', '']
 const UNITS_PAGE_SIZE = 8
+
+/* ---------------- Unit filter helpers (All Units · BHK · Facing) ---------------- */
+
+// "2 BHK + 2T" -> "2 BHK", "1BHK+1T" -> "1 BHK", "Studio" -> "Studio"
+function getBhkLabel(type = '') {
+  const match = String(type).match(/(\d+)\s*bhk/i)
+  if (match) return `${match[1]} BHK`
+  if (/studio/i.test(String(type))) return 'Studio'
+  return ''
+}
+
+// Builds: All Units | 1 BHK | 2 BHK | East Facing | West Facing
+function buildUnitFilterTabs(rows) {
+  const bhkSet = new Set()
+  const facingSet = new Set()
+
+  rows.forEach((row) => {
+    const bhk = getBhkLabel(row?.type)
+    if (bhk) bhkSet.add(bhk)
+    const facing = normaliseFacing(row?.facing)
+    if (facing) facingSet.add(facing)
+  })
+
+  const bhkTabs = [...bhkSet]
+    .sort((a, b) => {
+      const na = a === 'Studio' ? 0 : parseInt(a, 10)
+      const nb = b === 'Studio' ? 0 : parseInt(b, 10)
+      return na - nb
+    })
+    .map((label) => ({ id: `bhk:${label}`, label }))
+
+  const facingTabs = FACING_ORDER
+    .filter((facing) => facingSet.has(facing))
+    .map((facing) => ({ id: `facing:${facing}`, label: `${facing} Facing` }))
+
+  return [{ id: 'all', label: 'All Units' }, ...bhkTabs, ...facingTabs]
+}
+
+/* ---------------- Block helpers (Block-A / Block-B …) ---------------- */
+
+// Letters of every block a row belongs to: row.block, categories like "Block-B", or the flat prefix (B101 -> B)
+function getRowBlockLetters(row) {
+  const letters = new Set()
+  const read = (value) => {
+    const m = String(value || '').trim().match(/^block[\s_-]*([a-z])$/i)
+    if (m) letters.add(m[1].toUpperCase())
+  }
+  read(row?.block)
+  ;(row?.categories || []).forEach(read)
+  const prefix = String(row?.flatNo || '').trim().match(/^([A-Za-z])\d/)
+  if (prefix) letters.add(prefix[1].toUpperCase())
+  return letters
+}
+
+// Adds a "Block-X" tab for every block found in the rows that the tab list does not already have
+function withMissingBlockTabs(tabs, rows) {
+  const existing = new Set()
+  let sample = null
+  tabs.forEach((tab) => {
+    const m = String(tab.label || '').trim().match(/^block([\s_-]*)([a-z])$/i)
+    if (m) { existing.add(m[2].toUpperCase()); if (!sample) sample = m[1] || ' ' }
+  })
+
+  const found = new Set()
+  rows.forEach((row) => getRowBlockLetters(row).forEach((l) => found.add(l)))
+
+  const missing = [...found].sort().filter((l) => !existing.has(l))
+  // only add when the project already uses block tabs, or has more than one block
+  if (!missing.length || (!sample && found.size < 2)) return tabs
+
+  const sep = sample ?? '-'
+  return [...tabs, ...missing.map((l) => ({ id: `block:${l}`, label: `Block${sep}${l}` }))]
+}
+
+function rowMatchesFilter(row, filterId) {
+  if (!filterId || filterId === 'all') return true
+  if (filterId.startsWith('block:')) return getRowBlockLetters(row).has(filterId.slice(6))
+  if (filterId.startsWith('bhk:')) return getBhkLabel(row?.type) === filterId.slice(4)
+  if (filterId.startsWith('facing:')) return normaliseFacing(row?.facing) === filterId.slice(7)
+  // legacy ids coming from the API (categories / exact type)
+  return (row?.categories || []).includes(filterId) || row?.type === filterId
+}
 
 function formatPlotPrice(plot) {
   if (plot.priceLabel) return plot.priceLabel
@@ -1327,6 +1409,34 @@ function SectionEyebrow({ children, className = '' }) {
 }
 
 /* ==================================================================
+   SAME-ORIGIN MEDIA HELPER (fixes the 360° CORS error)
+
+   WebGL (three.js) can only use a cross-origin image as a texture when
+   the server sends `Access-Control-Allow-Origin`. The Laravel /storage
+   files don't, so in DEVELOPMENT we load them through the Next.js
+   rewrite `/media-proxy/*` (see next.config.js) which makes the request
+   same-origin.
+
+   In PRODUCTION (static export) rewrites do not exist, so the original
+   URL is used as-is — add the CORS header for /storage on the API server.
+================================================================== */
+const MEDIA_ORIGIN = 'https://api.crazystory.in'
+
+function toSameOriginMedia(src) {
+  if (!src || typeof window === 'undefined') return src
+  if (process.env.NODE_ENV === 'production') return src
+  try {
+    const u = new URL(src, window.location.href)
+    if (u.origin === MEDIA_ORIGIN && u.pathname.startsWith('/storage/')) {
+      return `/media-proxy/${u.pathname.replace(/^\/storage\//, '')}${u.search}`
+    }
+  } catch {
+    /* ignore bad URLs */
+  }
+  return src
+}
+
+/* ==================================================================
    TRUE 360° PANORAMA VIEWER
 ================================================================== */
 const INITIAL_FOV = 75
@@ -1366,17 +1476,25 @@ function usePanoramaViewer(containerRef, imageSrc, active) {
     let currentFov = INITIAL_FOV
     let pinchStartDist = null
     let pinchStartFov = INITIAL_FOV
-    loader.load(imageSrc, (texture) => {
-      texture.colorSpace = THREE.SRGBColorSpace
-      texture.minFilter = THREE.LinearFilter
-      texture.magFilter = THREE.LinearFilter
-      texture.anisotropy = renderer.capabilities.getMaxAnisotropy()
-      material.map = texture
-      material.color.set(0xffffff)
-      material.needsUpdate = true
-      stateRef.current.loaded = true
-      stateRef.current.onLoad?.()
-    }, undefined, (err) => { stateRef.current.onError?.(err) })
+    loader.load(
+      toSameOriginMedia(imageSrc),
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace
+        texture.minFilter = THREE.LinearFilter
+        texture.magFilter = THREE.LinearFilter
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy()
+        material.map = texture
+        material.color.set(0xffffff)
+        material.needsUpdate = true
+        stateRef.current.loaded = true
+        stateRef.current.onLoad?.()
+      },
+      undefined,
+      (err) => {
+        console.error('Panorama load failed:', err)
+        stateRef.current.onError?.(err)
+      }
+    )
 
     function getXY(e) {
       if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY }
@@ -1804,13 +1922,22 @@ function ProjectBannerView({ project }) {
   // Pre-launch offer note — shown only when the API says offers are on and rows carry offer prices
   const offerNote = isUnits && hasOffer ? (project?.offerValidityText || 'Pre-launch offer') : ''
 
+  // Gurudev ONLY -> All Units | 1 BHK | 2 BHK | East Facing | West Facing (auto-built from the rows)
+  // Every other project (Privana etc.) keeps its original tabs
+  const isGurudev = /gurudev/i.test(`${project?.slug || ''} ${project?.name || ''}`)
+
   const plotTabs = isUnits
-    ? (project?.plotPricingTabs?.length
-        ? project.plotPricingTabs
-        : [
-            { id: 'all', label: 'All' },
-            ...[...new Set(plotRows.map((r) => r.type).filter(Boolean))].map((t) => ({ id: t, label: t })),
-          ])
+    ? (isGurudev
+        ? buildUnitFilterTabs(plotRows)
+        : withMissingBlockTabs(
+            project?.plotPricingTabs?.length
+              ? project.plotPricingTabs
+              : [
+                  { id: 'all', label: 'All' },
+                  ...[...new Set(plotRows.map((r) => r.type).filter(Boolean))].map((t) => ({ id: t, label: t })),
+                ],
+            plotRows,
+          ))
     : (project?.plotPricingTabs?.length ? project.plotPricingTabs : DEFAULT_PLOT_TABS)
 
   const [plotFilter, setPlotFilter] = useState('all')
@@ -1818,8 +1945,8 @@ function ProjectBannerView({ project }) {
   const plotPricingRef = useRef(null)
 
   const filteredPlots = plotRows.filter((p) => {
-    const matchesTab = plotFilter === 'all' || (p.categories || []).includes(plotFilter) || p.type === plotFilter
-    return matchesTab
+    if (isUnits) return rowMatchesFilter(p, plotFilter)
+    return plotFilter === 'all' || (p.categories || []).includes(plotFilter) || p.type === plotFilter
   })
 
   const shownUnits = filteredPlots.slice(0, unitsVisible)
@@ -2989,17 +3116,12 @@ function ProjectBannerView({ project }) {
                 <FadeUp delay={0.25}>
                   <div className="mb-6 grid grid-cols-3 sm:mb-10">
                     {(project.plotFeatures?.length ? project.plotFeatures : project.plotPricingIcons?.length ? project.plotPricingIcons.map((ic) => ({ title: ic.title, image: ic.image, text: [ic.desc || ic.description || ''] })) : PLOT_FEATURES).map((feature, i) => {
-                      const FeatureIcon = feature.icon
+                      // Always a lucide icon (Shield / Coins / Leaf) — uploaded images are ignored
+                      const FeatureIcon = feature.icon || PLOT_FEATURES[i % PLOT_FEATURES.length].icon
                       return (
                         <div key={`${feature.title}-${i}`} className={`flex flex-col items-center px-1.5 text-center sm:px-2 ${i > 0 ? 'border-l border-[#E0E8F0]' : ''}`}>
                           <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full sm:mb-4 sm:h-[62px] sm:w-[62px]" style={{ backgroundColor: LIGHT_BLUE }}>
-                            {feature.image ? (
-                              <img src={feature.image} alt="" className="h-5 w-5 object-contain sm:h-7 sm:w-7" />
-                            ) : FeatureIcon ? (
-                              <FeatureIcon className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.3} style={{ color: DEEP_NAVY }} />
-                            ) : (
-                              <Sparkles className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.3} style={{ color: DEEP_NAVY }} />
-                            )}
+                            <FeatureIcon className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.3} style={{ color: DEEP_NAVY }} />
                           </span>
                           <p className="m-0 mb-1 text-[12px] font-semibold leading-snug sm:mb-2 sm:text-[15px]" style={{ color: DEEP_NAVY }}>{feature.title}</p>
                           <p className="m-0 text-[11px] leading-[1.4] sm:text-[13px] sm:leading-[1.45]" style={{ color: TEXT_CHARCOAL }}>
@@ -3039,12 +3161,14 @@ function ProjectBannerView({ project }) {
                 <div className="h-full rounded-[18px] border border-[#E0E8F0] bg-white p-3 shadow-[0_30px_70px_-35px_rgba(0,0,0,0.22)] sm:rounded-[26px] sm:p-6">
 
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:mb-5 sm:gap-y-2.5">
+                    {/* Filter tabs: All Units | 1 BHK | 2 BHK | East Facing | West Facing */}
                     <div className="flex min-w-0 items-center gap-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {plotTabs.map((tab) => {
                         const isActive = plotFilter === tab.id
                         return (
                           <button key={tab.id}
                             onClick={() => { setPlotFilter(tab.id); setUnitsVisible(UNITS_PAGE_SIZE) }}
+                            aria-pressed={isActive}
                             className={`relative shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors sm:px-5 sm:py-2.5 sm:text-[13.5px] ${isActive ? 'text-white' : 'text-[#1a1a1a] hover:bg-[#F0F6FC] hover:text-[#0F3A6B]'}`}>
                             {isActive && (
                               <motion.span layoutId="plotTabPill" transition={{ type: 'spring', stiffness: 400, damping: 34 }}

@@ -558,7 +558,7 @@ function ProjectCard({ project }) {
               className="gs-line mt-2.5 text-[12.5px] leading-relaxed sm:mt-4 sm:text-[14px]"
               style={{ color: TEXT_CHARCOAL }}
             >
-              {project.address}
+              {/* {project.address} */}
             </p>
           )}
 
