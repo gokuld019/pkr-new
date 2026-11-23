@@ -2,32 +2,27 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 
-const SLIDES = [
+const API_URL = "https://api.crazystory.in/api/home/details";
+
+// The API returns relative paths like "home/desktop/xxx.webp".
+// Change this if your images are served from a different base (e.g. https://api.crazystory.in/storage/).
+const IMAGE_BASE = "https://api.crazystory.in/storage/";
+
+// Shown only if the API fails or returns no banners
+const FALLBACK_SLIDES = [
   {
     desktop: "/banners/33.webp",
-    desktopWidth: 1366,
-    desktopHeight: 626,
     mobile: "/banners/m-1.webp",
-    mobileWidth: 720,
-    mobileHeight: 1035,
     alt: "Project amenities banner",
   },
   {
     desktop: "/banners/compr2.webp",
-    desktopWidth: 1366,
-    desktopHeight: 626,
     mobile: "/banners/2.webp",
-    mobileWidth: 694,
-    mobileHeight: 1000,
     alt: "Privana project banner",
   },
   {
     desktop: "/banners/compr1.webp",
-    desktopWidth: 1366,
-    desktopHeight: 626,
     mobile: "/banners/mob1.webp",
-    mobileWidth: 720,
-    mobileHeight: 1088,
     alt: "Gurudev project banner",
   },
 ];
@@ -35,20 +30,39 @@ const SLIDES = [
 const AUTO_SCROLL_MS = 5500;
 const SWIPE_THRESHOLD = 50;
 
+const toUrl = (path) => {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${IMAGE_BASE}${String(path).replace(/^\/+/, "")}`;
+};
+
+// Build slides from desktop_banners + mobile_banners (they may differ in length)
+const buildSlides = (data) => {
+  const desktop = Array.isArray(data?.desktop_banners) ? data.desktop_banners.filter(Boolean) : [];
+  const mobile = Array.isArray(data?.mobile_banners) ? data.mobile_banners.filter(Boolean) : [];
+  const count = Math.max(desktop.length, mobile.length);
+
+  const slides = [];
+  for (let i = 0; i < count; i++) {
+    const d = desktop[i] || desktop[0] || mobile[i] || mobile[0];
+    const m = mobile[i] || mobile[0] || desktop[i] || desktop[0];
+    slides.push({
+      desktop: toUrl(d),
+      mobile: toUrl(m),
+      alt: `PKR Estates banner ${i + 1}`,
+    });
+  }
+  return slides;
+};
+
 function SlideImage({ slide, priority }) {
   return (
     <picture className="block w-full">
-      <source
-        media="(min-width: 768px)"
-        srcSet={slide.desktop}
-        width={slide.desktopWidth}
-        height={slide.desktopHeight}
-      />
+      <source media="(min-width: 768px)" srcSet={slide.desktop} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={slide.mobile}
         alt={slide.alt}
-        width={slide.mobileWidth}
-        height={slide.mobileHeight}
         fetchPriority={priority ? "high" : "auto"}
         loading={priority ? "eager" : "lazy"}
         decoding={priority ? "sync" : "async"}
@@ -59,21 +73,53 @@ function SlideImage({ slide, priority }) {
 }
 
 export default function HeroBanner() {
+  const [slides, setSlides] = useState([]);
+  const [status, setStatus] = useState("loading"); // loading | ready
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const [loadRest, setLoadRest] = useState(false);
   const pausedRef = useRef(false);
   const touchStartX = useRef(null);
 
-  const next = useCallback(() => {
-    setLoadRest(true);
-    setActive((p) => (p + 1) % SLIDES.length);
+  const count = slides.length;
+
+  /* ---------- fetch banners ---------- */
+  useEffect(() => {
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const res = await fetch(API_URL, {
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
+
+        const json = await res.json();
+        const list = json?.status ? buildSlides(json.data) : [];
+        setSlides(list.length > 0 ? list : FALLBACK_SLIDES);
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        setSlides(FALLBACK_SLIDES);
+      } finally {
+        if (!controller.signal.aborted) setStatus("ready");
+      }
+    })();
+
+    return () => controller.abort();
   }, []);
 
-  const prev = useCallback(() => {
+  const next = useCallback(() => {
+    if (count < 2) return;
     setLoadRest(true);
-    setActive((p) => (p - 1 + SLIDES.length) % SLIDES.length);
-  }, []);
+    setActive((p) => (p + 1) % count);
+  }, [count]);
+
+  const prev = useCallback(() => {
+    if (count < 2) return;
+    setLoadRest(true);
+    setActive((p) => (p - 1 + count) % count);
+  }, [count]);
 
   useEffect(() => {
     pausedRef.current = paused;
@@ -87,12 +133,12 @@ export default function HeroBanner() {
   }, []);
 
   useEffect(() => {
-    if (SLIDES.length < 2) return;
+    if (count < 2) return;
     const id = setInterval(() => {
       if (!pausedRef.current) next();
     }, AUTO_SCROLL_MS);
     return () => clearInterval(id);
-  }, [next]);
+  }, [next, count]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -116,6 +162,23 @@ export default function HeroBanner() {
     touchStartX.current = null;
   };
 
+  /* ---------- loading placeholder (keeps the page from jumping) ---------- */
+  if (status === "loading") {
+    return (
+      <section
+        aria-label="Project banner"
+        className="hero-banner relative w-full animate-pulse bg-gray-100"
+      >
+        <h1 className="sr-only">
+          PKR Estates — Luxury and Affordable Residential Apartments in Chennai
+        </h1>
+        <div className="aspect-[720/1035] w-full md:aspect-[1366/626]" />
+      </section>
+    );
+  }
+
+  if (count === 0) return null;
+
   return (
     <section
       aria-roledescription="carousel"
@@ -129,15 +192,15 @@ export default function HeroBanner() {
       <h1 className="sr-only">
         PKR Estates — Luxury and Affordable Residential Apartments in Chennai
       </h1>
-      {SLIDES.map((s, i) => {
+      {slides.map((s, i) => {
         if (i > 0 && !loadRest && active === 0) return null;
         const isActive = i === active;
         return (
           <div
-            key={s.desktop}
+            key={`${s.desktop}-${i}`}
             role="group"
             aria-roledescription="slide"
-            aria-label={`${i + 1} of ${SLIDES.length}`}
+            aria-label={`${i + 1} of ${count}`}
             aria-hidden={!isActive}
             className={`col-start-1 row-start-1 transition-opacity duration-[900ms] ease-in-out motion-reduce:transition-none ${
               isActive ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0"

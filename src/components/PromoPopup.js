@@ -6,16 +6,27 @@ import { useEffect, useState } from "react";
  * PromoPopup
  * -----------
  * Auto-opening promo modal — single full-bleed image, no overlaid text/content.
- * Uses a separate artwork for mobile (< 768px) and desktop/tablet.
+ * The popup image comes from the home details API (popup_image).
  */
 
-const DESKTOP_IMAGE_URL = "/popupp.webp";
-const MOBILE_IMAGE_URL = "/mobilepopup.webp";
+const API_URL = "https://api.crazystory.in/api/home/details";
+
+// The API returns a relative path like "home/xxxx.webp".
+// Change this if your images are served from a different base (e.g. https://api.crazystory.in/storage/).
+const IMAGE_BASE = "https://api.crazystory.in/storage/";
+
+const toUrl = (path) => {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${IMAGE_BASE}${String(path).replace(/^\/+/, "")}`;
+};
 
 export default function PromoPopup() {
   const [open, setOpen] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
 
   useEffect(() => {
+    // already shown this session -> don't even call the API
     try {
       if (sessionStorage.getItem("pkrPromoShown")) return;
     } catch {
@@ -23,13 +34,11 @@ export default function PromoPopup() {
     }
 
     let cancelled = false;
-    const isMobile =
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 767px)").matches;
-    const targetSrc = isMobile ? MOBILE_IMAGE_URL : DESKTOP_IMAGE_URL;
+    const controller = new AbortController();
 
-    const showPopup = () => {
+    const showPopup = (src) => {
       if (cancelled) return;
+      setImageUrl(src);
       setOpen(true);
       try {
         sessionStorage.setItem("pkrPromoShown", "1");
@@ -38,19 +47,37 @@ export default function PromoPopup() {
       }
     };
 
-    const img = new window.Image();
-    img.decoding = "async";
-    img.src = targetSrc;
+    (async () => {
+      try {
+        const res = await fetch(API_URL, {
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
 
-    if (typeof img.decode === "function") {
-      img.decode().then(showPopup).catch(showPopup);
-    } else {
-      img.onload = showPopup;
-      img.onerror = showPopup;
-    }
+        const json = await res.json();
+        const src = json?.status ? toUrl(json.data?.popup_image) : "";
+        if (!src || cancelled) return; // no popup image set -> show nothing
+
+        // preload + decode first so the popup appears fully rendered
+        const img = new window.Image();
+        img.decoding = "async";
+        img.src = src;
+
+        if (typeof img.decode === "function") {
+          img.decode().then(() => showPopup(src)).catch(() => showPopup(src));
+        } else {
+          img.onload = () => showPopup(src);
+          img.onerror = () => showPopup(src);
+        }
+      } catch {
+        /* API failed -> simply don't show the popup */
+      }
+    })();
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 
@@ -63,7 +90,7 @@ export default function PromoPopup() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !imageUrl) return null;
 
   return (
     <div
@@ -96,22 +123,13 @@ export default function PromoPopup() {
           </svg>
         </button>
 
-        <picture className="block">
-          <source
-            media="(max-width: 767px)"
-            srcSet={MOBILE_IMAGE_URL}
-            width={720}
-            height={1053}
-          />
-          <img
-            src={DESKTOP_IMAGE_URL}
-            alt="Promo offer"
-            width={1140}
-            height={513}
-            decoding="sync"
-            className="popup-image block h-auto max-h-[85vh] w-auto max-w-[92vw] object-contain sm:max-h-[88vh] md:max-h-[90vh] md:w-full md:max-w-full"
-          />
-        </picture>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt="Promo offer"
+          decoding="sync"
+          className="popup-image block h-auto max-h-[85vh] w-auto max-w-[92vw] object-contain sm:max-h-[88vh] md:max-h-[90vh] md:w-full md:max-w-full"
+        />
       </div>
     </div>
   );

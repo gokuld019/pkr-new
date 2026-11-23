@@ -1,17 +1,38 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { EASE, useReveal, SplitReveal, WordReveal, CountUp } from "@/components/motion/reveal";
 
-const DEEP_NAVY = "#0F3A6B";
-const TEXT_CHARCOAL = "#2D3A46";
+const API_URL = "https://api.crazystory.in/api/home/details";
 
-const STATS = [
+// Shown only if the API fails or returns nothing
+const FALLBACK_STATS = [
   { value: "9+", label: ["YEARS OF", "EXCELLENCE"] },
   { value: "1L+", label: ["SQ.FT. SPACE", "DELIVERED"] },
   { value: "3+", label: ["LANDMARK", "PROJECTS"] },
 ];
+
+// "YEARS OF EXCELLENCE" -> ["YEARS OF", "EXCELLENCE"]
+// "SQ.FT. SPACE DELIVERED" -> ["SQ.FT. SPACE", "DELIVERED"]
+// "LANDMARK" -> ["LANDMARK"]
+const splitLabel = (text = "") => {
+  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 1) return words;
+  return [words.slice(0, -1).join(" "), words[words.length - 1]];
+};
+
+// Build the three stats from the API's legacy_* fields
+const buildStats = (data) => {
+  const items = [
+    { value: data?.legacy_years, text: data?.legacy_years_text },
+    { value: data?.legacy_space, text: data?.legacy_space_text },
+    { value: data?.legacy_landmark, text: data?.legacy_landmark_text },
+  ];
+  return items
+    .filter((s) => s.value)
+    .map((s) => ({ value: String(s.value), label: splitLabel(s.text) }));
+};
 
 const DESCRIPTION =
   "PKR Estates is a trusted name in South India's real estate sector, committed to creating thoughtfully designed residential developments that combine contemporary living, quality construction, and lasting value. With a strong focus on sustainable practices, innovative design, and customer-centric development, we build homes that meet modern aspirations while contributing to vibrant and responsible communities. ";
@@ -19,6 +40,33 @@ const DESCRIPTION =
 export default function AboutStats() {
   const statsRef = useRef(null);
   const statsShow = useReveal(statsRef, { amount: 0.4 });
+
+  const [stats, setStats] = useState(null); // null = still loading
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const res = await fetch(API_URL, {
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
+
+        const json = await res.json();
+        const list = json?.status ? buildStats(json.data) : [];
+        setStats(list.length > 0 ? list : FALLBACK_STATS);
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        setStats(FALLBACK_STATS);
+      }
+    })();
+
+    return () => controller.abort();
+  }, []);
+
+  const count = stats?.length || 3;
 
   return (
     <section
@@ -36,39 +84,40 @@ export default function AboutStats() {
 
         <div
           ref={statsRef}
-          className="mt-5 grid grid-cols-2 gap-y-4 gap-x-3 sm:mt-8 sm:grid-cols-3 sm:gap-4 sm:divide-x sm:divide-black/20 md:gap-0"
+          className="mt-5 grid min-h-[110px] grid-cols-2 gap-y-4 gap-x-3 sm:mt-8 sm:grid-cols-3 sm:gap-4 sm:divide-x sm:divide-black/20 md:gap-0"
         >
-          {STATS.map((stat, i) => (
-            <div
-              key={stat.value}
-              className={`flex flex-col items-center px-2 text-center sm:px-4 lg:px-10 ${
-                i === 2 ? "col-span-2 sm:col-span-1" : ""
-              }`}
-            >
-              {/* NUMBERS — deep navy, reduced weight */}
-              <CountUp
-                value={stat.value}
-                delay={0.15 * i}
-                className="text-[32px] font-semibold leading-none tabular-nums sm:text-5xl lg:text-6xl text-[#0F3A6B]"
-              />
+          {stats &&
+            stats.map((stat, i) => (
+              <div
+                key={`${stat.value}-${i}`}
+                className={`flex flex-col items-center px-2 text-center sm:px-4 lg:px-10 ${
+                  i === count - 1 && count % 2 === 1 ? "col-span-2 sm:col-span-1" : ""
+                }`}
+              >
+                {/* NUMBERS — deep navy, reduced weight */}
+                <CountUp
+                  value={stat.value}
+                  delay={0.15 * i}
+                  className="text-[32px] font-semibold leading-none tabular-nums sm:text-5xl lg:text-6xl text-[#0F3A6B]"
+                />
 
-              {/* LABELS — text charcoal */}
-              <div className="mt-1.5 flex flex-col items-center gap-0.5 text-[11px] font-semibold uppercase leading-snug tracking-wide sm:mt-3 sm:gap-1 sm:text-sm md:text-base lg:text-lg text-[#2D3A46]">
-                {stat.label.map((line, li) => (
-                  <span key={line} className="block overflow-hidden">
-                    <motion.span
-                      className="block"
-                      initial={{ y: "100%", opacity: 0 }}
-                      animate={statsShow ? { y: "0%", opacity: 1 } : { y: "100%", opacity: 0 }}
-                      transition={{ duration: 0.7, delay: 0.35 + 0.15 * i + 0.08 * li, ease: EASE }}
-                    >
-                      {line}
-                    </motion.span>
-                  </span>
-                ))}
+                {/* LABELS — text charcoal */}
+                <div className="mt-1.5 flex flex-col items-center gap-0.5 text-[11px] font-semibold uppercase leading-snug tracking-wide sm:mt-3 sm:gap-1 sm:text-sm md:text-base lg:text-lg text-[#2D3A46]">
+                  {stat.label.map((line, li) => (
+                    <span key={`${line}-${li}`} className="block overflow-hidden">
+                      <motion.span
+                        className="block"
+                        initial={{ y: "100%", opacity: 0 }}
+                        animate={statsShow ? { y: "0%", opacity: 1 } : { y: "100%", opacity: 0 }}
+                        transition={{ duration: 0.7, delay: 0.35 + 0.15 * i + 0.08 * li, ease: EASE }}
+                      >
+                        {line}
+                      </motion.span>
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
 
         {/* DESCRIPTION — text charcoal */}

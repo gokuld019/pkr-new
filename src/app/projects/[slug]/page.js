@@ -1,182 +1,124 @@
 // src/app/projects/[slug]/page.js
 import { notFound } from "next/navigation";
-import { projects, getProjectBySlug, getAllProjectSlugs } from "@/data/projects";
 import ProjectBanner from "@/components/ProjectBanner";
 
-// Pre-render both project pages at build time
-export function generateStaticParams() {
-  return getAllProjectSlugs().map((slug) => ({ slug }));
+// Same API that src/lib/projectApi.js (used by ProjectBanner) talks to.
+// NOTE: projectApi.js is a 'use client' module, so its helpers can't be imported
+// into this server component - the tiny bits we need are repeated here.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://api.crazystory.in/api";
+
+const slugify = (s = "") =>
+  String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+// Returns the projects array, or null if the API could not be reached.
+async function getProjects() {
+  try {
+    const res = await fetch(`${API_BASE}/projects/list`, {
+      headers: { Accept: "application/json" },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) throw new Error(`API responded with ${res.status}`);
+
+    const json = await res.json();
+    if (!json || json.status !== true || !Array.isArray(json.data)) {
+      throw new Error(json?.message || "Unexpected API response");
+    }
+    return json.data;
+  } catch (error) {
+    console.warn("Project list fetch failed:", error);
+    return null;
+  }
 }
 
-// Per-page <title> / meta
+// The API has no slug field and the project is still named "New Project",
+// so map friendly URLs to project ids here. Remove an entry once the project
+// is renamed in the admin (then /projects/<name-slug> works by itself).
+const SLUG_ALIASES = { privana: 7 };
+
+// Mirrors findProject() in projectApi.js so the server and the client agree.
+function matchProject(list, slug) {
+  const want = slugify(slug);
+  const aliasId = SLUG_ALIASES[want];
+  return (
+    (aliasId != null && list.find((p) => String(p.id) === String(aliasId))) ||
+    list.find((p) => slugify(p.slug || p.name) === want || String(p.id) === String(slug)) ||
+    // looser fallback: "privana" also matches "Privana Heights"
+    list.find((p) => slugify(p.name).split("-").includes(want) || slugify(p.name).startsWith(want)) ||
+    null
+  );
+}
+
+// Slugs that must always be generated, even if the API is down at build time.
+// "output: export" needs every URL listed here - anything missing is an error/404.
+const EXTRA_SLUGS = Object.keys(SLUG_ALIASES);
+
+export async function generateStaticParams() {
+  const projects = await getProjects();
+
+  const slugs = new Set(EXTRA_SLUGS);
+  (projects || []).forEach((p) => {
+    const named = slugify(p.slug || p.name);
+    if (named) slugs.add(named);
+    slugs.add(String(p.id)); // the API has no slug field - /projects/7 always works
+  });
+
+  // Check this in the terminal: the slug you visit must appear in this list.
+  console.log(
+    "[projects] API projects:",
+    (projects || []).map((p) => `${p.id}:${p.name}`),
+    "| static slugs:",
+    [...slugs]
+  );
+
+  return [...slugs].map((slug) => ({ slug }));
+}
+
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
+  const projects = await getProjects();
+  const project = projects ? matchProject(projects, slug) : null;
   if (!project) return {};
+
   return {
     title: `${project.name} | PKR Estates`,
-    description: project.tagline,
+    description: project.detail?.hero_description || undefined,
   };
 }
 
 export default async function ProjectDetailPage({ params }) {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
 
-  if (!project) {
+  const projects = await getProjects();
+
+  // Only 404 when the API answered and really has no such project.
+  // If the API was unreachable, let ProjectBanner try again in the browser.
+  const match = projects ? matchProject(projects, slug) : null;
+
+  if (projects && !match) {
+    // In dev, show what the API actually returned so the right slug is obvious.
+    if (process.env.NODE_ENV !== "production") {
+      return (
+        <main style={{ padding: "48px 24px", fontFamily: "monospace", color: "#111", background: "#fff" }}>
+          <h2>No project matches &quot;{slug}&quot;</h2>
+          <p>Projects returned by the API ({projects.length}):</p>
+          <ul>
+            {projects.map((p) => (
+              <li key={p.id}>
+                id {p.id} &mdash; name: {JSON.stringify(p.name)} &mdash; try{" "}
+                <a href={`/projects/${slugify(p.name) || p.id}/`}>/projects/{slugify(p.name) || p.id}/</a>
+              </li>
+            ))}
+          </ul>
+        </main>
+      );
+    }
     notFound();
   }
 
-  const hasUnitTypes = project.unitTypes && project.unitTypes.length > 0;
-  const hasAmenities = project.amenities && project.amenities.length > 0;
-  const hasLandmarks =
-    project.nearbyLandmarks && project.nearbyLandmarks.length > 0;
-  const hasGallery = project.gallery && project.gallery.length > 0;
-
   return (
-    <main className="project-detail">
-      {/* Banner */}
-      <ProjectBanner project={project} />
-
-    
-      
-
-     
-
-      <style>{`
-        .project-detail {
-          width: 100%;
-          color: #1a1a1a;
-          font-family: inherit;
-        }
-
-        .section {
-          padding: 3rem 6vw;
-          border-bottom: 1px solid #eee;
-        }
-
-        .section h2 {
-          font-size: 1.6rem;
-          margin: 0 0 1.2rem;
-        }
-
-        .overview p {
-          max-width: 70ch;
-          line-height: 1.7;
-          color: #444;
-        }
-
-        .overview-stats {
-          display: flex;
-          gap: 2.5rem;
-          margin-top: 1.8rem;
-          flex-wrap: wrap;
-        }
-
-        .stat {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .stat-value {
-          font-size: 1.4rem;
-          font-weight: 700;
-        }
-
-        .stat-label {
-          font-size: 0.85rem;
-          color: #777;
-          margin-top: 0.2rem;
-        }
-
-        table {
-          width: 100%;
-          max-width: 640px;
-          border-collapse: collapse;
-        }
-
-        th,
-        td {
-          text-align: left;
-          padding: 0.75rem 1rem;
-          border-bottom: 1px solid #eee;
-        }
-
-        th {
-          font-size: 0.85rem;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: #777;
-        }
-
-        .amenities-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: 1rem;
-        }
-
-        .amenity-card {
-          background: #f7f7f7;
-          border-radius: 8px;
-          padding: 1rem 1.2rem;
-          font-size: 0.95rem;
-        }
-
-        .gallery-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 1rem;
-        }
-
-        .gallery-item {
-          aspect-ratio: 4 / 3;
-          background-size: cover;
-          background-position: center;
-          background-color: #e5e5e5;
-          border-radius: 8px;
-        }
-
-        .landmarks-list {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          max-width: 640px;
-        }
-
-        .landmarks-list li {
-          display: flex;
-          justify-content: space-between;
-          padding: 0.7rem 0;
-          border-bottom: 1px solid #eee;
-          font-size: 0.95rem;
-        }
-
-        .cta {
-          text-align: center;
-          border-bottom: none;
-        }
-
-        .cta-button {
-          display: inline-block;
-          margin-top: 1rem;
-          padding: 0.9rem 2.4rem;
-          background: #1a1a1a;
-          color: #fff;
-          text-decoration: none;
-          border-radius: 6px;
-          font-weight: 600;
-        }
-
-        @media (max-width: 640px) {
-          .section {
-            padding: 2.2rem 6vw;
-          }
-
-          .overview-stats {
-            gap: 1.5rem;
-          }
-        }
-      `}</style>
+    <main className="project-detail w-full">
+      {/* ProjectBanner fetches + maps the project itself; the id is the most reliable key */}
+      <ProjectBanner projectId={match ? match.id : undefined} slug={slug} />
     </main>
   );
 }

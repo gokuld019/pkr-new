@@ -15,6 +15,7 @@ import {
   Send, Check, AlertTriangle, MapPinned, ParkingSquare, Expand, Grid3x3, ChevronDown, ChevronUp,
   ExternalLink, Images,
 } from 'lucide-react'
+import { useProject } from '@/lib/projectApi'
 
 const figtree = Figtree({
   subsets: ['latin'],
@@ -39,36 +40,12 @@ const ENQUIRY_API = 'https://gurudev.pkrestates.com/backend/api/submit-enquiry'
 const WHATSAPP_NUMBER = '919381055555'
 
 /* ------------------------------------------------------------------ */
-/*  RERA CERTIFICATE PDFs  (files live in /public/rera)                */
-/*  Clicking the "RERA Number" quick-fact card opens the PDF below.   */
-/*  Change the file names here if yours are different.               */
-/*  (A `reraPdf` set on the project in projects.js wins over this.)   */
+/*  RERA CERTIFICATE PDF                                               */
+/*  Comes from the API (`detail.rera_pdf`) via project.reraPdf.       */
 /* ------------------------------------------------------------------ */
-const RERA_PDFS = {
-  gurudev: '/rera/gurudev.pdf',
-  privana: '/rera/privana.pdf',
-}
-
 function getReraPdf(project) {
-  if (!project) return ''
-  if (project.reraPdf) return project.reraPdf
-  if (RERA_PDFS[project.slug]) return RERA_PDFS[project.slug]
-  return project.slug ? `/rera/${project.slug}.pdf` : ''
+  return project?.reraPdf || ''
 }
-
-/* ------------------------------------------------------------------ */
-/*  Projects whose floor plans should NOT show any facing filter /     */
-/*  facing badge / "East Facing" detail.                              */
-/* ------------------------------------------------------------------ */
-const HIDE_FACING_SLUGS = ['gurudev']
-
-/* ------------------------------------------------------------------ */
-/*  Pre-launch offer note shown in the pricing box (Privana only).     */
-/*  Change the text/date here, or set `offerValidityText` on the       */
-/*  project in projects.js to override it.                             */
-/* ------------------------------------------------------------------ */
-const OFFER_NOTE_SLUGS = ['privana']
-const DEFAULT_OFFER_NOTE = 'Pre-launch offer valid till Nov 8th 2026'
 
 /* ------------------------------------------------------------------ */
 /*  WHATSAPP HELPER                                                    */
@@ -148,15 +125,11 @@ function getAmenityIcon(label = '') {
   if (l.includes('security') || l.includes('cctv')) return ShieldCheck
   if (l.includes('play')) return Baby
   if (l.includes('walk')) return Users
+  if (l.includes('pool') || l.includes('swim')) return Waves
+  if (l.includes('club')) return Landmark
+  if (l.includes('game')) return Gamepad2
   return Sparkles
 }
-
-const DEFAULT_AMENITIES_TABS = [
-  { title: 'Swimming Pool', eyebrow: 'Rejuvenate', description: 'Take a refreshing break and unwind in our beautifully designed swimming pool, crafted for relaxation and recreation.', tags: ['Modern Design', 'Spacious Deck', 'Relax & Unwind'], image: '/amenities/amenities.jpeg' },
-  { title: 'Club House', eyebrow: 'Gather', description: 'A welcoming space for residents to meet, celebrate and unwind together.', tags: ['Event Ready', 'Community Hub', 'All-Day Access'], image: '/amenities/amenities3.jpeg' },
-  { title: "Children's Play Area", eyebrow: 'Play', description: 'A safe, cheerful play zone designed to keep the little ones active and happy.', tags: ['Soft Flooring', 'Supervised', 'Age Friendly'], image: '/amenities/amenities4.jpeg' },
-  { title: 'Landscaped Gardens', eyebrow: 'Breathe', description: 'Lush green pockets threaded through the community for quiet morning walks.', tags: ['Native Plants', 'Shaded Paths', 'Fresh Air'], image: '/amenities/amenities5.jpeg' },
-]
 
 const FLOOR_PLAN_HIGHLIGHTS = [
   { icon: LayoutGrid, label: ['Efficient', 'Layouts'] },
@@ -382,32 +355,22 @@ const DEFAULT_PLOT_TABS = [
   { id: 'corner', label: 'Corner Plots' },
 ]
 
-const DEFAULT_PLOT_PRICING = [
-  { sqft: 600, priceLakhs: 28.5, categories: ['residential'] },
-  { sqft: 800, priceLakhs: 36.8, categories: ['residential'] },
-  { sqft: 1000, priceLakhs: 45, categories: ['residential', 'corner'] },
-  { sqft: 1200, priceLakhs: 52.5, categories: ['residential'] },
-  { sqft: 1500, priceLakhs: 63, categories: ['premium'] },
-  { sqft: 1800, priceLakhs: 74.5, categories: ['premium', 'corner'] },
-  { sqft: 2400, priceLakhs: 96, categories: ['premium', 'corner'] },
-  { sqft: 3000, priceLakhs: 122, categories: ['premium'] },
-]
-
 const PLOT_TABLE_HEADERS = [
   ['Plot Size', '(Sq.Ft.)'], ['Plot Size', '(Sq.Yd.)'],
   ['Price', '(₹ Lakhs)'], ['Enquire', ''],
 ]
 
+// Fallback only — the project's own three icon columns come from the API (project.plotFeatures)
 const PLOT_FEATURES = [
   { icon: ShieldCheck, title: 'Clear Titles', text: ['Hassle-free', 'ownership'] },
   { icon: Coins, title: 'Competitive Pricing', text: ['Great value', 'for your investment'] },
   { icon: Leaf, title: 'Future Growth', text: ['A location with', 'lasting potential'] },
 ]
 
-// Without offer prices (Gurudev): Flat | Type | Facing & area | Price | action
+// Without offer prices: Flat | Type | Facing & area | Price | action
 const UNIT_GRID_COLS = 'sm:grid-cols-[1fr_0.85fr_1.3fr_1fr_150px]'
 const UNIT_TABLE_HEADERS = ['Flat', 'Type', 'Facing & area', 'Price', '']
-// With offer prices (Privana): Flat | Type | Facing & area | Price | Offer Price | action
+// With offer prices: Flat | Type | Facing & area | Price | Offer Price | action
 const UNIT_GRID_COLS_OFFER = 'sm:grid-cols-[0.8fr_0.8fr_1.05fr_0.95fr_1.1fr_132px]'
 const UNIT_TABLE_HEADERS_OFFER = ['Flat', 'Type', 'Facing & area', 'Price', 'Offer Price', '']
 const UNITS_PAGE_SIZE = 8
@@ -452,7 +415,7 @@ function getPricingType(project) {
   return 'plots'
 }
 
-// Does this row carry a pre-launch / offer price? (Privana rows have `offerPrice`)
+// Does this row carry a pre-launch / offer price?
 function rowHasOffer(row) {
   const n = Number(row?.offerPrice)
   return Number.isFinite(n) && n > 0
@@ -898,7 +861,7 @@ const ProjectSubMenu = memo(ProjectSubMenuBase, (a, b) => {
    UNIT ROW
 ================================================================== */
 function UnitRow({ row, onEnquire, hasOffer = false }) {
-  const floor = row.floor?.replace(' Floor', '')
+  const floor = row.floor?.replace(/\s*floor/i, '')
   const area = row.sqft ? `${row.sqft} sq.ft` : ''
 
   const showOffer = hasOffer && rowHasOffer(row)
@@ -971,9 +934,6 @@ function UnitRow({ row, onEnquire, hasOffer = false }) {
               <span className="text-[15px] font-bold tabular-nums" style={{ color: DEEP_NAVY }}>
                 {showOffer ? formatUnitPrice(row.offerPrice) : '—'}
               </span>
-              {showOffer && (
-                <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[1px] text-emerald-600">Pre-launch offer</span>
-              )}
             </div>
           </>
         ) : (
@@ -1000,7 +960,7 @@ function UnitRow({ row, onEnquire, hasOffer = false }) {
    ENQUIRE MODAL
 ================================================================== */
 function EnquireModal({ open, onClose, presetType = '', projectName = '', context = '', brochureUrl = '' }) {
-  const INQUIRY_TYPES = ['General Enquiry', 'Gurudev', 'Privana']
+  const INQUIRY_TYPES = [...new Set(['General Enquiry', projectName].filter(Boolean))]
   const [form, setForm] = useState({ name: '', email: '', phone: '', inquiryType: '', message: '' })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -1596,19 +1556,22 @@ function Panorama360Modal({ open, onClose, imageSrc, title, subtitle }) {
   )
 }
 
-export default function ProjectBanner({ project }) {
+function ProjectBannerView({ project }) {
   const amenityTabs = project?.amenityTabs?.length
     ? project.amenityTabs
     : project?.amenities?.length
-      ? project.amenities.map((a) => ({
-          title: a.title,
-          eyebrow: a.tagline || 'Explore',
-          description: a.description || `Discover the ${a.title.toLowerCase()} at ${project.name || 'this project'} — thoughtfully designed for everyday comfort.`,
-          tags: a.tags?.length ? a.tags : [],
-          image: a.image,
-          gallery: a.gallery || (a.image ? [a.image] : []),
-        }))
-      : DEFAULT_AMENITIES_TABS
+      ? project.amenities.map((a) => {
+          const title = a.title || ''
+          return {
+            title,
+            eyebrow: a.tagline || 'Explore',
+            description: a.description || `Discover the ${title.toLowerCase() || 'amenity'} at ${project.name || 'this project'} — thoughtfully designed for everyday comfort.`,
+            tags: a.tags?.length ? a.tags : [],
+            image: a.image,
+            gallery: a.gallery || (a.image ? [a.image] : []),
+          }
+        })
+      : []
 
   const amenitiesEyebrow = project?.amenitiesEyebrow || 'Life at its finest'
   const amenitiesHeading = project?.amenitiesHeading?.length
@@ -1646,6 +1609,11 @@ export default function ProjectBanner({ project }) {
   const galleryNext = useCallback(() => { setDirection(1); setGalleryIndex((i) => (i === galleryItems.length - 1 ? 0 : i + 1)) }, [galleryItems.length])
   const goToGallery = (i) => { setDirection(i > galleryIndex ? 1 : -1); setGalleryIndex(i) }
 
+  // keep the index valid when images are added / removed live in the editor preview
+  useEffect(() => {
+    if (galleryIndex > 0 && galleryIndex >= galleryItems.length) setGalleryIndex(0)
+  }, [galleryItems.length, galleryIndex])
+
   useEffect(() => {
     if (galleryItems.length < 2 || paused || lightboxOpen || !galleryInView) return
     const id = setInterval(galleryNext, 5000)
@@ -1673,7 +1641,8 @@ export default function ProjectBanner({ project }) {
   const floorPlanBlocks = project?.floorPlanBlocks || []
   const hasFloorPlanBlocks = floorPlanBlocks.length > 0
   const [activeBlock, setActiveBlock] = useState(0)
-  const currentFloorBlock = hasFloorPlanBlocks ? floorPlanBlocks[activeBlock] : null
+  const safeActiveBlock = activeBlock < floorPlanBlocks.length ? activeBlock : 0
+  const currentFloorBlock = hasFloorPlanBlocks ? floorPlanBlocks[safeActiveBlock] : null
 
   const floorPlanTabs = hasFloorPlanBlocks ? (currentFloorBlock?.tabs || []) : (project?.floorPlanTabs || [])
   const allFloorPlans = hasFloorPlanBlocks ? (currentFloorBlock?.plans || []) : (project?.floorPlans || [])
@@ -1682,10 +1651,8 @@ export default function ProjectBanner({ project }) {
 
   /* ---------------- Facing filter ---------------- */
 
-  // Gurudev (and any slug in HIDE_FACING_SLUGS, or a project with `hideFacingFilter: true`)
-  // shows NO facing filter, facing badge or "East Facing" detail in its floor plans.
-  const hideFacing =
-    Boolean(project?.hideFacingFilter) || HIDE_FACING_SLUGS.includes(project?.slug)
+  // Hidden only when the project sets `hideFacingFilter: true`
+  const hideFacing = Boolean(project?.hideFacingFilter)
 
   const pricingRowsForFacing = project?.plotPricing?.length ? project.plotPricing : EMPTY_ROWS
 
@@ -1823,7 +1790,7 @@ export default function ProjectBanner({ project }) {
 
   const pricingType = getPricingType(project)
   const isUnits = pricingType === 'units'
-  const plotRows = project?.plotPricing?.length ? project.plotPricing : DEFAULT_PLOT_PRICING
+  const plotRows = project?.plotPricing?.length ? project.plotPricing : EMPTY_ROWS
 
   const hasOffer = isUnits && plotRows.some(rowHasOffer)
   const unitTableHeaders = hasOffer ? UNIT_TABLE_HEADERS_OFFER : UNIT_TABLE_HEADERS
@@ -1834,11 +1801,8 @@ export default function ProjectBanner({ project }) {
       ? 'Offer prices are pre-launch prices · Registration, GST & other charges are extra'
       : 'Registration, GST & other charges are extra')
 
-  // Pre-launch offer note (Privana only) — shown in the pricing box
-  const offerNote =
-    isUnits && OFFER_NOTE_SLUGS.includes(project?.slug)
-      ? (project?.offerValidityText || DEFAULT_OFFER_NOTE)
-      : ''
+  // Pre-launch offer note — shown only when the API says offers are on and rows carry offer prices
+  const offerNote = isUnits && hasOffer ? (project?.offerValidityText || 'Pre-launch offer') : ''
 
   const plotTabs = isUnits
     ? (project?.plotPricingTabs?.length
@@ -1919,7 +1883,7 @@ export default function ProjectBanner({ project }) {
           aria-label={project.name ? `${project.name} banner` : 'Project banner'}
           className="relative mx-auto hidden w-full overflow-hidden bg-[#333] bg-cover bg-center bg-no-repeat md:block"
           style={{
-            backgroundImage: `url(${project.heroImage})`,
+            backgroundImage: project.heroImage ? `url(${project.heroImage})` : undefined,
             aspectRatio: `${project.heroAspectW || DESKTOP_BANNER_W} / ${project.heroAspectH || DESKTOP_BANNER_H}`,
             maxHeight: `${DESKTOP_BANNER_MAX_H}px`,
           }}
@@ -1932,7 +1896,7 @@ export default function ProjectBanner({ project }) {
             aria-label={project.name ? `${project.name} banner` : 'Project banner'}
             className="relative mx-auto w-full overflow-hidden bg-[#333] bg-cover bg-top bg-no-repeat"
             style={{
-              backgroundImage: `url(${project.heroImageMobile || project.heroImage})`,
+              backgroundImage: (project.heroImageMobile || project.heroImage) ? `url(${project.heroImageMobile || project.heroImage})` : undefined,
               aspectRatio: `${MOBILE_BANNER_W} / ${MOBILE_BANNER_H}`,
             }}
           />
@@ -1991,8 +1955,8 @@ export default function ProjectBanner({ project }) {
                     Download Brochure
                   </AccentOutlineButton>
                 )}
-                <AccentOutlineButton href="tel:+919543633333" icon={Phone}>
-                  Call Us
+                <AccentOutlineButton href={`tel:${project.callButtonNumber || project.callNumber || '+919543633333'}`} icon={Phone}>
+                  {project.callButtonText || project.callLabel || 'Call Us'}
                 </AccentOutlineButton>
               </div>
             </FadeUp>
@@ -2003,11 +1967,13 @@ export default function ProjectBanner({ project }) {
             delay={0.15}
             className="relative min-w-0 lg:min-h-[480px] xl:min-h-[420px] xl:h-full"
           >
-            <img
-              src={project.aboutImage}
-              alt={project.name || 'Project'}
-              className="h-auto w-full rounded-[14px] object-cover shadow-[0_24px_60px_-28px_rgba(0,0,0,0.35)] sm:rounded-[16px] lg:absolute lg:inset-0 lg:h-full"
-            />
+            {project.aboutImage && (
+              <img
+                src={project.aboutImage}
+                alt={project.name || 'Project'}
+                className="h-auto w-full rounded-[14px] object-cover shadow-[0_24px_60px_-28px_rgba(0,0,0,0.35)] sm:rounded-[16px] lg:absolute lg:inset-0 lg:h-full"
+              />
+            )}
           </FadeUp>
 
           {/* ---------- Quick facts card ---------- */}
@@ -2020,7 +1986,7 @@ export default function ProjectBanner({ project }) {
                   const isRight = i % 2 === 1
                   const isLastRow = i >= lastRowStart
 
-                  // RERA card -> opens this project's RERA certificate PDF (public/rera/...) in a new tab
+                  // RERA card -> opens this project's RERA certificate PDF in a new tab
                   const isRera = fact.icon === 'rera' || /rera/i.test(fact.label || '')
                   const factHref = fact.href || (isRera ? reraPdfUrl : '')
 
@@ -2431,7 +2397,7 @@ export default function ProjectBanner({ project }) {
                   </p>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     {floorPlanBlocks.map((block, i) => {
-                      const isActive = i === activeBlock
+                      const isActive = i === safeActiveBlock
                       return (
                         <button
                           key={block.id || block.label || i}
@@ -2978,8 +2944,6 @@ export default function ProjectBanner({ project }) {
         </section>
       )}
 
-      {/* {hasMasterPlan && ( ... )} */}
-
       {/* ================= Pricing & Availability ================= */}
       {plotRows.length > 0 && (
         <section ref={plotPricingRef} id="price-list" className="relative w-full overflow-hidden bg-gradient-to-b from-[#F7FAFD] via-white to-[#F7FAFD] px-4 py-10 sm:px-8 sm:py-16 md:px-10 lg:px-14 lg:py-24" style={{ fontFamily: FONT }}>
@@ -3002,8 +2966,8 @@ export default function ProjectBanner({ project }) {
                   text={
                     isUnits ? (
                       <>
-                        Homes &<br />
-                        <span style={{ color: DEEP_NAVY }}>Pricing</span>
+                        {project.plotPricingHeading?.[0] || 'Homes &'}<br />
+                        <span style={{ color: DEEP_NAVY }}>{project.plotPricingHeading?.[1] || 'Pricing'}</span>
                       </>
                     ) : (
                       <>
@@ -3024,16 +2988,23 @@ export default function ProjectBanner({ project }) {
 
                 <FadeUp delay={0.25}>
                   <div className="mb-6 grid grid-cols-3 sm:mb-10">
-                    {PLOT_FEATURES.map((feature, i) => {
+                    {(project.plotFeatures?.length ? project.plotFeatures : project.plotPricingIcons?.length ? project.plotPricingIcons.map((ic) => ({ title: ic.title, image: ic.image, text: [ic.desc || ic.description || ''] })) : PLOT_FEATURES).map((feature, i) => {
                       const FeatureIcon = feature.icon
                       return (
-                        <div key={feature.title} className={`flex flex-col items-center px-1.5 text-center sm:px-2 ${i > 0 ? 'border-l border-[#E0E8F0]' : ''}`}>
+                        <div key={`${feature.title}-${i}`} className={`flex flex-col items-center px-1.5 text-center sm:px-2 ${i > 0 ? 'border-l border-[#E0E8F0]' : ''}`}>
                           <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full sm:mb-4 sm:h-[62px] sm:w-[62px]" style={{ backgroundColor: LIGHT_BLUE }}>
-                            <FeatureIcon className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.3} style={{ color: DEEP_NAVY }} />
+                            {feature.image ? (
+                              <img src={feature.image} alt="" className="h-5 w-5 object-contain sm:h-7 sm:w-7" />
+                            ) : FeatureIcon ? (
+                              <FeatureIcon className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.3} style={{ color: DEEP_NAVY }} />
+                            ) : (
+                              <Sparkles className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.3} style={{ color: DEEP_NAVY }} />
+                            )}
                           </span>
                           <p className="m-0 mb-1 text-[12px] font-semibold leading-snug sm:mb-2 sm:text-[15px]" style={{ color: DEEP_NAVY }}>{feature.title}</p>
                           <p className="m-0 text-[11px] leading-[1.4] sm:text-[13px] sm:leading-[1.45]" style={{ color: TEXT_CHARCOAL }}>
-                            {feature.text[0]}<br />{feature.text[1]}
+                            {feature.text?.[0]}
+                            {feature.text?.[1] && (<><br />{feature.text[1]}</>)}
                           </p>
                         </div>
                       )
@@ -3057,7 +3028,7 @@ export default function ProjectBanner({ project }) {
                         {project.plotPricingCtaText || 'Secure your slice of a better lifestyle today.'}
                       </p>
                       <OutlineButton onClick={() => openEnquire(project.name || '', 'Pricing')} icon={ArrowRight} className="w-fit">
-                        Enquire Now
+                        {project.plotPricingCtaButton || 'Enquire Now'}
                       </OutlineButton>
                     </div>
                   </div>
@@ -3085,7 +3056,7 @@ export default function ProjectBanner({ project }) {
                       })}
                     </div>
 
-                    {/* Pre-launch offer note — Privana only */}
+                    {/* Pre-launch offer note */}
                     {offerNote && (
                       <span
                         className="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700 sm:px-3.5 sm:py-2 sm:text-[12.5px]"
@@ -3297,8 +3268,10 @@ export default function ProjectBanner({ project }) {
                 {project.locationDescription}
               </p>
 
-              {project.locationMapUrl && (
-                <AccentOutlineButton href={project.locationMapUrl} target="_blank" rel="noopener noreferrer" icon={Navigation2}>Get Directions</AccentOutlineButton>
+              {(project.locationDirectionsUrl || project.locationMapUrl) && (
+                <AccentOutlineButton href={project.locationDirectionsUrl || project.locationMapUrl} target="_blank" rel="noopener noreferrer" icon={Navigation2}>
+                  {project.locationCtaLabel || 'Get Directions'}
+                </AccentOutlineButton>
               )}
             </FadeUp>
 
@@ -3324,7 +3297,7 @@ export default function ProjectBanner({ project }) {
               {project.locationLandmarks.map((item, i) => {
                 const LandmarkIcon = getLandmarkIcon(item.label)
                 return (
-                  <motion.div key={i}
+                  <motion.div key={item.id || i}
                     initial={{ opacity: 0, x: 16 }} animate={locationInView ? { opacity: 1, x: 0 } : {}} transition={{ duration: 0.5, delay: 0.08 * i, ease: EASE }}
                     className="group flex items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-white px-3 py-2.5 transition-all duration-300 hover:border-[#0F3A6B]/30 hover:shadow-[0_10px_24px_-14px_rgba(15,58,107,0.4)] sm:gap-4 sm:rounded-2xl sm:px-4 sm:py-3.5">
                     <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
@@ -3343,4 +3316,42 @@ export default function ProjectBanner({ project }) {
       )}
     </div>
   )
+}
+
+/* ==================================================================
+   DEFAULT EXPORT
+   - <ProjectBanner project={obj} />   -> renders the object you pass (admin editor live preview)
+   - <ProjectBanner projectId={7} />   -> fetches from the API, then renders
+   - <ProjectBanner slug="privana" />  -> fetches from the API, then renders
+================================================================== */
+function ProjectBannerFetcher({ projectId, slug }) {
+  const { project, loading, error } = useProject({ projectId, slug })
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] w-full items-center justify-center" style={{ fontFamily: FONT }}>
+        <span className="h-10 w-10 animate-spin rounded-full border-2 border-[#0F3A6B]/20 border-t-[#0F3A6B]" />
+      </div>
+    )
+  }
+
+  if (error || !project) {
+    return (
+      <div
+        className="flex min-h-[40vh] w-full items-center justify-center px-6 text-center text-[14px]"
+        style={{ fontFamily: FONT, color: TEXT_CHARCOAL }}
+      >
+        {error || 'Project not found'}
+      </div>
+    )
+  }
+
+  return <ProjectBannerView key={project.id} project={project} />
+}
+
+export default function ProjectBanner({ project, projectId, slug }) {
+  if (project) {
+    return <ProjectBannerView key={project.id ?? project.slug ?? 'preview'} project={project} />
+  }
+  return <ProjectBannerFetcher projectId={projectId} slug={slug} />
 }
