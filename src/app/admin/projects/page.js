@@ -21,7 +21,7 @@ const BLUE_SOFT = '#F0F6FC'
 const GRAD = `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_DARK} 100%)`
 
 /* ---------------- API + auth ---------------- */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.crazystory.in/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 const STORAGE_BASE = process.env.NEXT_PUBLIC_IMG_URL
 const TOKEN_KEY = 'admin_token'
 const DEBUG_AMENITIES = false

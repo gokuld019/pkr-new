@@ -8,6 +8,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // "missing param in generateStaticParams()" error while developing.
 const isProd = process.env.NODE_ENV === 'production';
 
+// Storage base URL comes from .env (NEXT_PUBLIC_IMG_URL). Trailing slashes are
+// stripped so the rewrite destination is always built the same way.
+const IMG_URL = (
+  process.env.NEXT_PUBLIC_IMG_URL || 'http://api.pkrestates.com/storage/'
+).replace(/\/+$/, '');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   ...(isProd ? { output: 'export' } : {}),
@@ -37,7 +43,7 @@ const nextConfig = {
           return [
             {
               source: '/media-proxy/:path*',
-              destination: 'https://api.crazystory.in/storage/:path*',
+              destination: `${IMG_URL}/:path*`,
             },
           ];
         },

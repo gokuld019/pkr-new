@@ -6,11 +6,11 @@ import { useEffect, useMemo, useState } from 'react'
 /* ------------------------------------------------------------------ */
 /*  CONFIG                                                             */
 /* ------------------------------------------------------------------ */
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'https://api.crazystory.in/api'
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE 
 
 // Paths in the API look like "projects/banners/xxx.webp" (Laravel storage disk).
 // Change this if your files are served from somewhere else.
-export const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE || 'https://api.crazystory.in/storage/'
+export const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE 
 
 /* ------------------------------------------------------------------ */
 /*  SMALL HELPERS                                                      */
