@@ -28,7 +28,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 const PROJECTS_URL = `${API_BASE}/projects/list`;// GET /api/projects/countdown/{id}
 //   not set -> { status: false, message: "Countdown not set for this project" }
 //   set     -> { status: true, data: { id, project_id, completion_date, is_active } }
-const COUNTDOWN_URL = (id) => `${API_BASE}/api/projects/countdown/${id}`;
+const COUNTDOWN_URL = (id) => `${API_BASE}/projects/countdown/${id}`;
 // Laravel public disk – API returns relative paths like "projects/hero/xxx.webp"
 const IMAGE_BASE =
   process.env.NEXT_PUBLIC_IMAGE_BASE || `${API_BASE}/storage`;

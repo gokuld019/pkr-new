@@ -14,7 +14,7 @@ const GOLD_DEEP = "#8A6B2E";
 const NAVY = "#0F1C2E";
 const LINE = "#E8DFCB";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}/blogs`;
 const IMG_BASE = process.env.NEXT_PUBLIC_IMG_URL;
 
 const imgSrc = (p) => {
@@ -81,7 +81,7 @@ function BlogDetail() {
     (async () => {
       try {
         // GET /api/blogs/details/:id
-        const json = await getJson(`${API}/details/${id}`);
+        const json = await getJson(`${API_BASE}/details/${id}`);
         const data = json?.data ?? json;
         if (!data?.id) throw new Error("Blog not found.");
         if (!active) return;
@@ -90,7 +90,7 @@ function BlogDetail() {
 
         // GET /api/blogs/list (for "More from the journal")
         try {
-          const all = toList(await getJson(`${API}/list`)).map(fromApi);
+          const all = toList(await getJson(`${API_BASE}/list`)).map(fromApi);
           if (active) setRelated(all.filter((p) => String(p.id) !== String(data.id)).slice(0, 2));
         } catch {
           /* related posts are optional */

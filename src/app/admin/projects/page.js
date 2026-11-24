@@ -38,7 +38,7 @@ const SHOW_TAB_BAR = true // draws the pricing filter tabs above the table in th
 // and also tries this GET (change the path if your backend uses another one; a 404 is ignored).
 const COUNTDOWN_GET_PATH = (projectId) => `/projects/countdown/${projectId}`
 
-const abs = (u) => (!u ? '' : /^(https?:|data:|blob:)/.test(u) ? u : `${STORAGE_BASE}${String(u).replace(/^\/+/, '').replace(/^storage\//, '')}`)
+const abs = (u) => (!u ? '' : /^(https?:|data:|blob:)/.test(u) ? u : `${STORAGE_BASE}${String(u).replace(/^\/+/, '').replace(/^(backend\/)?storage\//, '')}`)
 
 const readToken = (raw) => {
   if (!raw) return ''
@@ -68,6 +68,11 @@ const getToken = () => {
 
 // The API answers with status "success" on some endpoints and status true on others
 const isOkStatus = (s) => s === true || s === 1 || s === 'success'
+// Server sends /backend/storage/... but the files are served from /storage/...
+const fixUrls = (j) => {
+  if (!j) return j
+  try { return JSON.parse(JSON.stringify(j).split('/backend/storage/').join('/storage/')) } catch { return j }
+}
 
 async function apiFetch(path, options = {}) {
   const token = getToken()
@@ -85,7 +90,7 @@ async function apiFetch(path, options = {}) {
   try { json = await res.json() } catch { json = null }
   if (res.status === 401 || res.status === 403) throw new Error('Your session has expired. Please log in again.')
   if (!res.ok || (json && json.status && !isOkStatus(json.status))) throw new Error(json?.message || 'Something went wrong.')
-  return { res, json }
+  return { res, json: fixUrls(json) }
 }
 
 async function uploadFile(path, formData) {
@@ -105,7 +110,7 @@ async function uploadFile(path, formData) {
   try { json = await res.json() } catch { json = null }
   if (res.status === 401 || res.status === 403) throw new Error('Your session has expired. Please log in again.')
   if (!res.ok || (json && json.status && !isOkStatus(json.status))) throw new Error(json?.message || 'Upload failed.')
-  return json
+  return fixUrls(json)
 }
 
 const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -696,7 +701,13 @@ function buildPreview(f) {
   p._id = f.id
 
   /* ---- Overview ---- */
-  if (!f.eyebrow) p.eyebrow = 'Add an eyebrow'
+  /* ---- Banner ---- */
+  p.heroImage = f.heroImage || PH('Banner image')
+  p.heroImageMobile = f.heroImageMobile || p.heroImage
+  p.desktopBanner = p.desktop_banner = p.desktop_banner_url = p.heroImage
+  p.mobileBanner = p.mobile_banner = p.mobile_banner_url = p.heroImageMobile
+
+  /* ---- Overview ---- */
   if (blankPair(f.heading)) p.heading = ['Designed for a', 'Better Way of Life']
   if (!f.description) p.description = 'Add a short overview of the project here.'
   if (!f.aboutImage) p.aboutImage = PH('Overview image')
@@ -1010,9 +1021,9 @@ function ImageField({ label, hint, value, onChange, projectId, bannerType }) {
 
       const data = res.data || {}
       let newUrl = ''
-      if (bannerType === 'desktop') newUrl = data.desktop_banner || data.desktop_banner_url
-      else if (bannerType === 'mobile') newUrl = data.mobile_banner || data.mobile_banner_url
-      else if (bannerType === 'thumbnail') newUrl = data.thumbnail_image || data.thumbnail_image_url
+      if (bannerType === 'desktop') newUrl = data.desktop_banner_url || data.desktop_banner
+else if (bannerType === 'mobile') newUrl = data.mobile_banner_url || data.mobile_banner
+else if (bannerType === 'thumbnail') newUrl = data.thumbnail_image_url || data.thumbnail_image
 
       if (!newUrl) throw new Error('Server returned success but no image URL.')
       onChange(abs(newUrl))
@@ -2732,6 +2743,15 @@ export default function ProjectsPage() {
         heroImageMobile: d.mobile_banner_url || abs(d.mobile_banner),
         tourThumbnail: d.thumbnail_image_url || abs(d.thumbnail_image),
       }
+
+            console.log('BANNER DEBUG', {
+        desktop_banner: d.desktop_banner,
+        desktop_banner_url: d.desktop_banner_url,
+        mobile_banner: d.mobile_banner,
+        mobile_banner_url: d.mobile_banner_url,
+        final: base.heroImage,
+        STORAGE_BASE,
+      })
       const overview = overviewFromApi(d.details || {})
       // if the details response embeds `countdown`, use it right away
       const cd = countdownFromApi({ data: d })
@@ -2945,8 +2965,8 @@ export default function ProjectsPage() {
     async function loadProjects() {
       try {
         const res = await apiFetch('/projects/get-all', { method: 'GET' })
-        const list = res.json?.data || []
-
+const raw = res.json?.data
+const list = Array.isArray(raw) ? raw : (raw?.data || [])
         const mapped = list.map(p => ({
           ...BLANK,
           id: p.id,

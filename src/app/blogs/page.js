@@ -14,7 +14,7 @@ const GOLD_DEEP = "#8A6B2E";
 const NAVY = "#0F1C2E";
 const LINE = "#E8DFCB";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}/blogs`;
 const IMG_BASE = process.env.NEXT_PUBLIC_IMG_URL;
 
 const imgSrc = (p) => {
@@ -49,7 +49,7 @@ const toList = (json) => {
 async function fetchBlogs() {
   let res;
   try {
-    res = await fetch(`${API}/list`, { headers: { Accept: "application/json" } });
+    res = await fetch(`${API_BASE}/list`, { headers: { Accept: "application/json" } });
   } catch (e) {
     throw new Error("Could not reach the API (network or CORS issue).");
   }

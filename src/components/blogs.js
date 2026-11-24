@@ -56,7 +56,7 @@ const toList = (json) => {
 async function fetchBlogs() {
   let res;
   try {
-    res = await fetch(`${API}/list`, { headers: { Accept: "application/json" } });
+    res = await fetch(`${API}/blogs/list`, { headers: { Accept: "application/json" } });
   } catch (e) {
     console.error("Home blogs fetch failed:", e);
     throw new Error("Could not reach the API (network or CORS issue).");
