@@ -8,10 +8,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // "missing param in generateStaticParams()" error while developing.
 const isProd = process.env.NODE_ENV === 'production';
 
-// Storage base URL comes from .env (NEXT_PUBLIC_IMG_URL). Trailing slashes are
+// Storage base URL comes from .env.local (NEXT_PUBLIC_IMG_URL). Trailing slashes are
 // stripped so the rewrite destination is always built the same way.
 const IMG_URL = (
-  process.env.NEXT_PUBLIC_IMG_URL || 'http://api.pkrestates.com/storage/'
+  process.env.NEXT_PUBLIC_IMG_URL || 'https://gurudev.pkrestates.com/backend/storage/'
 ).replace(/\/+$/, '');
 
 /** @type {import('next').NextConfig} */
@@ -36,7 +36,7 @@ const nextConfig = {
   // Dev-only proxy so the 360° viewer (WebGL) can load images from the API
   // server without hitting CORS. `rewrites()` is not supported together with
   // `output: 'export'`, so it is only added outside production builds.
-  // For production, add the CORS header on the API server (see notes).
+  // For production, add the CORS header on the API server.
   ...(!isProd
     ? {
         async rewrites() {

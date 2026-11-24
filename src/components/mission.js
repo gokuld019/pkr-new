@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
-import { Geist } from "next/font/google";
+import { geist as geist } from "../lib/fonts";
 import {
   useReveal,
   SplitReveal,
@@ -14,11 +14,7 @@ import {
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 
-const geist = Geist({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
+
 
 const DEEP_NAVY = "#0F3A6B";
 const TEXT_CHARCOAL = "#2D3A46";

@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Geist } from "next/font/google";
+import { geist as geist } from "../../lib/fonts";
 
-const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+
 
 const UPDATED = "15 October 2026";
 

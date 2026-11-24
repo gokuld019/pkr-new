@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Geist } from "next/font/google";
+import { geist as geist } from "../lib/fonts";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, MotionConfig } from "framer-motion";
@@ -16,7 +16,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+
 
 const DEEP_NAVY = "#0F3A6B";
 const TEXT_CHARCOAL = "#2D3A46";

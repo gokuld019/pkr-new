@@ -5,10 +5,10 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Figtree } from "next/font/google";
+import { figtree as figtree } from "../../../lib/fonts";
 import { Clock, Calendar } from "lucide-react";
 
-const figtree = Figtree({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+
 
 const GOLD_DEEP = "#8A6B2E";
 const NAVY = "#0F1C2E";

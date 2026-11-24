@@ -4,14 +4,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Figtree } from "next/font/google";
+import { figtree as figtree } from "../../lib/fonts";
 import { Calendar, Clock, ArrowRight } from "lucide-react";
 
-const figtree = Figtree({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-figtree",
-});
+
 
 const CREAM = "#FBF8F2";
 const GOLD_DEEP = "#8A6B2E";

@@ -1,14 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { Figtree } from "next/font/google";
+import { figtree as figtree } from "../../lib/fonts";
 import { useEffect, useRef, useState } from "react";
 
-const figtree = Figtree({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
-});
+
 
 /* ------------------------------------------------------------------ */
 /*  THEME TOKENS                                                       */

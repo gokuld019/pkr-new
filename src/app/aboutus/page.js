@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import Image from "next/image";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { Figtree } from "next/font/google";
+import { figtree as figtree } from "../../lib/fonts";
 import {
   Award,
   Users,
@@ -25,11 +25,7 @@ if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
 // useLayoutEffect on the client (no flash of un-animated text), useEffect on the server
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-const figtree = Figtree({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  display: "swap",
-});
+
 
 const DEEP_NAVY = "#0F3A6B";
 const DEEP_NAVY_HOVER = "#0A2B50";

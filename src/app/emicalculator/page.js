@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useRef } from "react";
 import Image from "next/image";
-import { Figtree } from "next/font/google";
+import { figtree as figtree } from "../../lib/fonts";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -15,12 +15,7 @@ import {
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
-const figtree = Figtree({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-figtree",
-  display: "swap",
-});
+
 
 // Hero image intrinsic sizes — SET THESE to the real pixel size of your files.
 // They reserve the space before the image loads (prevents the footer jumping up first).

@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
-import { Figtree } from 'next/font/google'
+import { figtree as figtree } from "../lib/fonts";
 import * as THREE from 'three'
 import {
   Download, ChevronLeft, ChevronRight, MapPin, School, Hospital, TrainFront, Bus, Plane,
@@ -16,12 +16,6 @@ import {
   ExternalLink, Images,
 } from 'lucide-react'
 import { useProject } from '@/lib/projectApi'
-
-const figtree = Figtree({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-})
 
 const EASE = [0.22, 1, 0.36, 1]
 const FONT = figtree.style.fontFamily

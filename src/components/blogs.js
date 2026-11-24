@@ -5,7 +5,7 @@
 import { useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Geist } from "next/font/google";
+import { geist as geist } from "../lib/fonts";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -13,7 +13,7 @@ import { ArrowRight, Clock } from "lucide-react";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
-const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+
 
 const DEEP_NAVY = "#0F3A6B";
 const TEXT_CHARCOAL = "#2D3A46";

@@ -1,18 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Figtree } from "next/font/google";
+import { figtree as figtree } from "../../lib/fonts";
 import { motion, AnimatePresence } from "framer-motion";
 import { EASE, SplitReveal } from "@/components/motion/reveal";
 
 /* ---------------------------------------------------------
    Figtree font
 --------------------------------------------------------- */
-const figtree = Figtree({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
+
 
 /* ---------------------------------------------------------
    THEME TOKENS

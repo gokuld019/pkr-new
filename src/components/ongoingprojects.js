@@ -25,8 +25,7 @@ const LIGHT_BLUE_RING = "rgba(15,58,107,0.10)";
 /* API config                                                          */
 /* ------------------------------------------------------------------ */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
-const PROJECTS_URL = `${API_BASE}/api/projects/list`;
-// GET /api/projects/countdown/{id}
+const PROJECTS_URL = `${API_BASE}/projects/list`;// GET /api/projects/countdown/{id}
 //   not set -> { status: false, message: "Countdown not set for this project" }
 //   set     -> { status: true, data: { id, project_id, completion_date, is_active } }
 const COUNTDOWN_URL = (id) => `${API_BASE}/api/projects/countdown/${id}`;

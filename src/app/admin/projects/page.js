@@ -3,15 +3,13 @@
 // src/app/admin/projects/page.js
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Figtree } from 'next/font/google'
+import { figtree as figtree } from "../../../lib/fonts";
 import {
   Pencil, Plus, Trash2, X, Check, ArrowLeft, Upload, ExternalLink, Save, ImageIcon,
   Home, Sparkles, Images, LayoutGrid, Tag, Move3d, MapPin, Settings, Layers, Loader2, FileText,
   ShieldCheck, Wallet, Sprout, ArrowUpRight, Timer,
 } from 'lucide-react'
 import ProjectBanner from '@/components/ProjectBanner'
-
-const figtree = Figtree({ subsets: ['latin'], weight: ['400', '500', '600', '700'], display: 'swap' })
 
 const NAVY = '#0F3A6B'
 const NAVY_DARK = '#0A2B50'
