@@ -19,6 +19,7 @@ const assetUrl = (path) => {
   if (!path) return ''
   const p = String(path)
   if (/^(https?:)?\/\//.test(p) || p.startsWith('data:')) return p
+  
   return `${ASSET_BASE.replace(/\/+$/, '')}/${p.replace(/^\/+/, '')}`
 }
 
