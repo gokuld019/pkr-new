@@ -18,8 +18,8 @@ const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700", "
 const DEEP_NAVY = "#0F3A6B";
 const TEXT_CHARCOAL = "#2D3A46";
 
-const API = "https://api.crazystory.in/api/blogs";
-const IMG_BASE = "https://api.crazystory.in/storage/";
+const API = process.env.NEXT_PUBLIC_API_URL;
+const IMG_BASE = process.env.NEXT_PUBLIC_IMG_URL;
 
 const imgSrc = (p) => {
   if (!p) return "";

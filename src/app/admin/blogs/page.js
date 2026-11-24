@@ -3,9 +3,15 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Icon, PageHeader, Badge, Field, ImageInput, Drawer, ConfirmDelete, Empty } from '../ui';
 
-const API = 'https://api.crazystory.in/api/blogs';
-// Update this if your backend serves uploaded images from a different path
-const IMG_BASE = 'https://api.crazystory.in/storage/';
+// --- PULL FROM .ENV ---
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+const IMG_BASE = process.env.NEXT_PUBLIC_IMG_URL;
+
+// Build the blogs endpoint specifically
+// Clean up slashes so we don't get "api//blogs"
+const cleanBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+const API = `${cleanBase}/blogs`;
+
 const TOKEN_KEY = 'pkr_admin_token';
 
 const BLANK = { cover: '', title: '', category: '', excerpt: '', content: '', readTime: '' };
@@ -119,7 +125,6 @@ export default function BlogsPage() {
       };
 
       // Create always needs an image. On edit, send it only if a new one was picked
-      // (existing images are server paths like "blogs/xyz.jpeg").
       const isNewImage = form.cover.startsWith('blob:') || form.cover.startsWith('data:');
       if (!isEdit || isNewImage) body.image = await toBase64(form.cover);
 

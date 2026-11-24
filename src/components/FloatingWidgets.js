@@ -30,13 +30,18 @@ const LINE = "#E6E9EE";
 const CANVAS = "#FAFAF9";
 const SERIF = 'ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif';
 
-const ENQUIRY_API = "https://api.crazystory.in//api/submit-enquiry";
-const CHATBOT_INIT_API = "https://api.crazystory.in//api/chatbot/init";
-const CHATBOT_CHAT_API = "https://api.crazystory.in//api/chatbot/chat";
-const CHATBOT_HISTORY_API = "https://api.crazystory.in//api/chatbot/history";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+const ENQUIRY_API = `${API_URL}/submit-enquiry`;
+const CHATBOT_INIT_API = `${API_URL}/chatbot/init`;
+const CHATBOT_CHAT_API = `${API_URL}/chatbot/chat`;
+const CHATBOT_HISTORY_API = `${API_URL}/chatbot/history`;
+
 const INQUIRY_TYPES = ["General Enquiry", "Gurudev", "Privana"];
+
 const SESSION_STORAGE_KEY = "chatbot_session_id";
-const SESSIONS_INDEX_KEY = "chatbot_sessions_index"; 
+const SESSIONS_INDEX_KEY = "chatbot_sessions_index";
+
 const WHATSAPP_NUMBER = "919381055555";
 
 const FORCE_SESSION_ID = null;

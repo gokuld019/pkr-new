@@ -35,7 +35,7 @@ const LIGHT_BLUE = '#E8F0F9'
 const LIGHT_BLUE_SOFT = '#F0F6FC'
 
 const LOGO_URL = '/logo.jpeg'
-const ENQUIRY_API = 'https://api.crazystory.in/api/submit-enquiry'
+const ENQUIRY_API = `${process.env.NEXT_PUBLIC_API_URL}/submit-enquiry`;
 
 const WHATSAPP_NUMBER = '919381055555'
 
@@ -1420,7 +1420,7 @@ function SectionEyebrow({ children, className = '' }) {
    In PRODUCTION (static export) rewrites do not exist, so the original
    URL is used as-is — add the CORS header for /storage on the API server.
 ================================================================== */
-const MEDIA_ORIGIN = 'https://api.crazystory.in'
+const MEDIA_ORIGIN = process.env.NEXT_PUBLIC_IMG_URL.replace(/\/storage\/?$/, '');
 
 function toSameOriginMedia(src) {
   if (!src || typeof window === 'undefined') return src

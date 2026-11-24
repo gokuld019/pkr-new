@@ -5,7 +5,7 @@ import ProjectBanner from "@/components/ProjectBanner";
 // Same API that src/lib/projectApi.js (used by ProjectBanner) talks to.
 // NOTE: projectApi.js is a 'use client' module, so its helpers can't be imported
 // into this server component - the tiny bits we need are repeated here.
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://api.crazystory.in/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 const slugify = (s = "") =>
   String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");

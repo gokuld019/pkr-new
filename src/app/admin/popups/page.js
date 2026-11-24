@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, PageHeader, Badge, ImageInput, Drawer, ConfirmDelete } from '../ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.crazystory.in/api';
+const API = process.env.NEXT_PUBLIC_API_URL;
 // Update returns a relative path (home/xxx.jpg); this base turns it into a full URL
-const IMG_BASE = process.env.NEXT_PUBLIC_IMG_URL || 'http://api.crazystory.in/storage/';
+const IMG_BASE = process.env.NEXT_PUBLIC_IMG_URL;
 
 const imgUrl = (p) => (!p ? '' : /^https?:/.test(p) ? p : IMG_BASE + p);
 

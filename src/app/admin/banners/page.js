@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, PageHeader, Drawer, Empty } from '../ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.crazystory.in/api';
-const IMG_BASE = process.env.NEXT_PUBLIC_IMG_URL || 'http://api.crazystory.in/storage/';
+const API = process.env.NEXT_PUBLIC_API_URL;
+const IMG_BASE = process.env.NEXT_PUBLIC_IMG_URL;
 
 const TYPES = {
   desktop: { label: 'Desktop', size: '1366 × 626 px', ratio: '1366 / 626', min: 280 },

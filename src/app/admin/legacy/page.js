@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PageHeader, Field } from '../ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.crazystory.in/api';
+const API = process.env.NEXT_PUBLIC_API_URL;
 
 const TEXT_FIELDS = [
   { key: 'hero_subtitle', label: 'Hero subtitle', placeholder: 'MORE THAN JUST A HOME' },

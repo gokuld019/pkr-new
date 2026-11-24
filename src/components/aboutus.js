@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { EASE, useReveal, SplitReveal, WordReveal, CountUp } from "@/components/motion/reveal";
 
-const API_URL = "https://api.crazystory.in/api/home/details";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Shown only if the API fails or returns nothing
 const FALLBACK_STATS = [

@@ -2,11 +2,10 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 
-const API_URL = "https://api.crazystory.in/api/home/details";
 
-// The API returns relative paths like "home/desktop/xxx.webp".
-// Change this if your images are served from a different base (e.g. https://api.crazystory.in/storage/).
-const IMAGE_BASE = "https://api.crazystory.in/storage/";
+
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/home/details`;
+const IMAGE_BASE = process.env.NEXT_PUBLIC_IMG_URL;
 
 // Shown only if the API fails or returns no banners
 const FALLBACK_SLIDES = [

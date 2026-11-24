@@ -25,8 +25,11 @@ const LINE = "#E0E8F0";
 /* ------------------------------------------------------------------ */
 /*  API CONFIG                                                         */
 /* ------------------------------------------------------------------ */
-const CHANNEL_PARTNER_API =
-  "https://api.crazystory.in//api/channel-partner/register";
+// --- PULL FROM .ENV ---
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+// Clean up slashes so we don't get "api//channel-partner/register"
+const cleanBase = API_BASE.endsWith("/") ? API_BASE.slice(0, -1) : API_BASE;
+const CHANNEL_PARTNER_API = `${cleanBase}/channel-partner/register`;
 
 const PROFESSIONS = [
   "Broker",

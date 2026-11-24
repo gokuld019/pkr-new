@@ -24,8 +24,7 @@ const LIGHT_BLUE_RING = "rgba(15,58,107,0.10)";
 /* ------------------------------------------------------------------ */
 /* API config                                                          */
 /* ------------------------------------------------------------------ */
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "https://api.crazystory.in";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 const PROJECTS_URL = `${API_BASE}/api/projects/list`;
 // GET /api/projects/countdown/{id}
 //   not set -> { status: false, message: "Countdown not set for this project" }

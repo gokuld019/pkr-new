@@ -9,11 +9,11 @@ import { useEffect, useState } from "react";
  * The popup image comes from the home details API (popup_image).
  */
 
-const API_URL = "https://api.crazystory.in/api/home/details";
+// API URL from environment
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/home/details`;
 
-// The API returns a relative path like "home/xxxx.webp".
-// Change this if your images are served from a different base (e.g. https://api.crazystory.in/storage/).
-const IMAGE_BASE = "https://api.crazystory.in/storage/";
+// Image storage URL from environment
+const IMAGE_BASE = process.env.NEXT_PUBLIC_IMG_URL;
 
 const toUrl = (path) => {
   if (!path) return "";

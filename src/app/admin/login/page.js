@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, Field } from '../ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.crazystory.in/api';
+const API = process.env.NEXT_PUBLIC_API_URL;
 
 export default function LoginPage() {
   const router = useRouter();
