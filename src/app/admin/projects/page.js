@@ -20,7 +20,8 @@ const GRAD = `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_DARK} 100%)`
 
 /* ---------------- API + auth ---------------- */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
-const STORAGE_BASE = process.env.NEXT_PUBLIC_IMG_URL
+// always ends with exactly one slash, because abs() and fixUrls() append paths directly
+const STORAGE_BASE = process.env.NEXT_PUBLIC_IMG_URL ? `${String(process.env.NEXT_PUBLIC_IMG_URL).replace(/\/+$/, '')}/` : ''
 const TOKEN_KEY = 'admin_token'
 const DEBUG_AMENITIES = false
 const DEBUG_GALLERY = false
@@ -39,6 +40,14 @@ const SHOW_TAB_BAR = true // draws the pricing filter tabs above the table in th
 const COUNTDOWN_GET_PATH = (projectId) => `/projects/countdown/${projectId}`
 
 const abs = (u) => (!u ? '' : /^(https?:|data:|blob:)/.test(u) ? u : `${STORAGE_BASE}${String(u).replace(/^\/+/, '').replace(/^(backend\/)?storage\//, '')}`)
+
+// Replaced images often keep the same file URL, so the browser shows the cached copy.
+// Append a version param to saved http(s) URLs after an upload.
+const bust = (u) => {
+  if (!u || !/^https?:/i.test(u)) return u
+  const clean = String(u).replace(/([?&])v=\d+(&|$)/, (m, a, b) => (b ? a : '')).replace(/[?&]$/, '')
+  return `${clean}${clean.includes('?') ? '&' : '?'}v=${Date.now()}`
+}
 
 const readToken = (raw) => {
   if (!raw) return ''
@@ -66,12 +75,20 @@ const getToken = () => {
   return m ? decodeURIComponent(m[1]) : ''
 }
 
+
 // The API answers with status "success" on some endpoints and status true on others
 const isOkStatus = (s) => s === true || s === 1 || s === 'success'
-// Server sends /backend/storage/... but the files are served from /storage/...
+
+// Any host + /storage/ (or /backend/storage/) -> your STORAGE_BASE
+const STORAGE_HOST_RE = /https?:\/\/[^"\/\s]+\/(?:backend\/)?storage\//g
+
 const fixUrls = (j) => {
   if (!j) return j
-  try { return JSON.parse(JSON.stringify(j).split('/backend/storage/').join('/storage/')) } catch { return j }
+  try {
+    let s = JSON.stringify(j)
+    if (STORAGE_BASE) s = s.replace(STORAGE_HOST_RE, STORAGE_BASE)
+    return JSON.parse(s)
+  } catch { return j }
 }
 
 async function apiFetch(path, options = {}) {
@@ -168,6 +185,12 @@ function overviewFromApi(p = {}) {
   if (p.rera_number) o.reraNumber = p.rera_number
   if (p.hero_image_url || p.hero_image) o.aboutImage = p.hero_image_url || abs(p.hero_image)
   if (p.rera_pdf_url || p.rera_pdf) o.reraPdf = p.rera_pdf_url || abs(p.rera_pdf)
+
+  // NOTE: banners (desktop / mobile / thumbnail) are NOT read here.
+  // This function is also run on `details`, where hero_image is the OVERVIEW image. Mapping
+  // hero_image / thumbnail_image to heroImage here made the overview image replace the real
+  // banner. Callers set heroImage, heroImageMobile and tourThumbnail from desktop_banner_url etc.
+
   const facts = buildFacts(o)
   if (facts.length) o.quickFacts = facts
   return o
@@ -626,7 +649,8 @@ function countdownFromApi(raw) {
 
 async function urlToFile(url) {
   if (!/^https?:/i.test(url)) throw new Error('not an http url')
-  const res = await fetch(url)
+  // 'reload' skips a cached response that was loaded by <img> without CORS headers
+  const res = await fetch(url, { cache: 'reload', mode: 'cors' })
   if (!res.ok) throw new Error('fetch failed')
   const blob = await res.blob()
   const name = (url.split('?')[0].split('/').pop() || 'icon.png')
@@ -700,12 +724,13 @@ function buildPreview(f) {
   p.project_id = f.id
   p._id = f.id
 
-  /* ---- Overview ---- */
   /* ---- Banner ---- */
-  p.heroImage = f.heroImage || PH('Banner image')
-  p.heroImageMobile = f.heroImageMobile || p.heroImage
-  p.desktopBanner = p.desktop_banner = p.desktop_banner_url = p.heroImage
-  p.mobileBanner = p.mobile_banner = p.mobile_banner_url = p.heroImageMobile
+  const realDesktop = f.heroImage || f.desktopBanner || ''
+  const realMobile = f.heroImageMobile || f.mobileBanner || realDesktop
+  p.heroImage = realDesktop || PH('Banner image')
+  p.heroImageMobile = realMobile || p.heroImage
+  p.desktopBanner = p.desktop_banner = p.desktop_banner_url = realDesktop
+  p.mobileBanner = p.mobile_banner = p.mobile_banner_url = realMobile
 
   /* ---- Overview ---- */
   if (blankPair(f.heading)) p.heading = ['Designed for a', 'Better Way of Life']
@@ -1019,14 +1044,16 @@ function ImageField({ label, hint, value, onChange, projectId, bannerType }) {
 
       const res = await uploadFile(`/projects/add-banners/${projectId}`, formData)
 
-      const data = res.data || {}
+      const keys = {
+        desktop: ['desktop_banner_url', 'desktop_banner'],
+        mobile: ['mobile_banner_url', 'mobile_banner'],
+        thumbnail: ['thumbnail_image_url', 'thumbnail_image'],
+      }[bannerType]
       let newUrl = ''
-      if (bannerType === 'desktop') newUrl = data.desktop_banner_url || data.desktop_banner
-else if (bannerType === 'mobile') newUrl = data.mobile_banner_url || data.mobile_banner
-else if (bannerType === 'thumbnail') newUrl = data.thumbnail_image_url || data.thumbnail_image
+      for (const k of keys) { const v = findKey(res, k); if (v) { newUrl = v; break } }
 
       if (!newUrl) throw new Error('Server returned success but no image URL.')
-      onChange(abs(newUrl))
+      onChange(bust(abs(newUrl)))
     } catch (err) {
       setLocalError(err.message)
     } finally {
@@ -2564,7 +2591,20 @@ function Editor({ form, setForm, onBack, onSave, onSaveOverview, onSaveAmenities
     setActiveId(id)
     if (scroll && sec.dom) secEl(sec.dom)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-  const cancel = () => { if (snap.current) set(snap.current); setDrawerError(''); setActiveId(null) }
+  const cancel = () => {
+    if (snap.current) {
+      const s = { ...snap.current }
+      // banner uploads and 360° Replace/Remove are saved instantly, so don't roll them back in the UI
+      if (active?.id === 'banner') { delete s.heroImage; delete s.heroImageMobile; delete s.tourThumbnail }
+      if (active?.id === 'tour') {
+        delete s.tourThumbnail
+        if (!form.tourCoverFile) { delete s.tourCover; delete s.tourCoverFile }
+        if (!form.tour360File) { delete s.tour360Image; delete s.tour360File }
+      }
+      set(s)
+    }
+    setDrawerError(''); setActiveId(null)
+  }
 
   const done = async () => {
     const savers = {
@@ -2713,6 +2753,29 @@ function Editor({ form, setForm, onBack, onSave, onSaveOverview, onSaveAmenities
   )
 }
 
+/* Project card banner: shows a clear message instead of a broken-image icon */
+function CardBanner({ src, name }) {
+  const [failed, setFailed] = useState(false)
+
+  // if the URL changes (e.g. after re-uploading a banner), try loading again
+  useEffect(() => { setFailed(false) }, [src])
+
+  if (!src) {
+    return <span className="absolute inset-0 p-3 pt-12 text-[11px] text-gray-500">No banner URL returned by the API</span>
+  }
+  if (failed) {
+    return <span className="absolute inset-0 break-all p-3 pt-12 text-[10px] leading-snug text-red-600">Failed to load: {src}</span>
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      onError={() => { console.error('Banner failed:', name, src); setFailed(true) }}
+      className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+    />
+  )
+}
+
 export default function ProjectsPage() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -2744,7 +2807,7 @@ export default function ProjectsPage() {
         tourThumbnail: d.thumbnail_image_url || abs(d.thumbnail_image),
       }
 
-            console.log('BANNER DEBUG', {
+      console.log('BANNER DEBUG', {
         desktop_banner: d.desktop_banner,
         desktop_banner_url: d.desktop_banner_url,
         mobile_banner: d.mobile_banner,
@@ -2965,8 +3028,8 @@ export default function ProjectsPage() {
     async function loadProjects() {
       try {
         const res = await apiFetch('/projects/get-all', { method: 'GET' })
-const raw = res.json?.data
-const list = Array.isArray(raw) ? raw : (raw?.data || [])
+        const raw = res.json?.data
+        const list = Array.isArray(raw) ? raw : (raw?.data || [])
         const mapped = list.map(p => ({
           ...BLANK,
           id: p.id,
@@ -3073,7 +3136,7 @@ const list = Array.isArray(raw) ? raw : (raw?.data || [])
         try { file = await urlToFile(a.icon) } catch { file = null }
       }
       if (!file) {
-        return { error: `Upload an icon for “${a.name}”. Its saved icon can't be reused — please re-upload.` }
+        return { error: `Couldn’t reuse the saved icon for “${a.name}”. Re-upload it, or allow CORS for this site on the image server (Access-Control-Allow-Origin) so saved icons can be re-sent.` }
       }
       body.append('amenities_icons[]', file)
     }
@@ -3132,6 +3195,7 @@ const list = Array.isArray(raw) ? raw : (raw?.data || [])
     try {
       const json = await uploadFile(`/projects/amenities/slider/update/${slideId}`, slideBody(draft, draft.files.length > 0))
       await loadAmenities(form.id)
+      if (draft.files.length > 0) setForm((f) => (f ? { ...f, amenities: (f.amenities || []).map((s) => (String(s.id) === String(slideId) ? { ...s, images: (s.images || []).map(bust), image: bust(s.image) } : s)) } : f))
       flash(json?.message || 'Slide updated')
       return { error: '' }
     } catch (err) {
@@ -3188,13 +3252,15 @@ const list = Array.isArray(raw) ? raw : (raw?.data || [])
 
   const updateGalleryImage = async (imageId, { title, file }) => {
     if (!imageId) return { error: 'Missing image id.' }
-    if (!title) return { error: 'Enter a title first.' }
+    if (!title && !file) return { error: 'Change the title or pick a new image first.' }
     const body = new FormData()
-    body.append('image_title', title)
+    body.append('image_title', title || '')
     if (file) body.append('image', file)
     try {
       const json = await uploadFile(`/projects/gallery/update/${imageId}`, body)
       await loadGallery(form.id)
+      // a replaced image keeps its URL; bust the cache so the new one shows
+      if (file) setForm((f) => (f ? { ...f, galleryImages: (f.galleryImages || []).map((g) => (String(g.id) === String(imageId) ? { ...g, image: bust(g.image) } : g)) } : f))
       flash(json?.message || 'Image updated')
       return { error: '' }
     } catch (err) {
@@ -3395,10 +3461,14 @@ const list = Array.isArray(raw) ? raw : (raw?.data || [])
       const cover = findKey(json, 'cover_image_url')
       const pano = findKey(json, 'panorama_image_url')
       const patch = { tourDirty: false, tourCoverFile: null, tour360File: null }
-      if (cover) patch.tourCover = abs(cover)
-      if (pano) patch.tour360Image = abs(pano)
       setForm((f) => ({ ...f, ...patch }))
       await loadTour(form.id, true)
+      // loadTour has just refreshed the URLs; bust the cache on the ones that were re-uploaded
+      setForm((f) => ({
+        ...f,
+        ...(cover && f.tourCover ? { tourCover: bust(f.tourCover) } : {}),
+        ...(pano && f.tour360Image ? { tour360Image: bust(f.tour360Image) } : {}),
+      }))
       flash(json?.message || '360° tour saved')
       return { error: '', patch }
     } catch (err) {
@@ -3416,8 +3486,8 @@ const list = Array.isArray(raw) ? raw : (raw?.data || [])
     try {
       const json = await uploadFile(`/projects/360/edit-image/${form.id}`, body)
       const url = findKey(json, type === 'cover' ? 'cover_image_url' : 'panorama_image_url')
-      if (url) setForm((f) => ({ ...f, [type === 'cover' ? 'tourCover' : 'tour360Image']: abs(url) }))
       await loadTour(form.id)
+      if (url) setForm((f) => ({ ...f, [type === 'cover' ? 'tourCover' : 'tour360Image']: bust(abs(url)) }))
       flash(json?.message || `${type === 'cover' ? 'Cover' : 'Panorama'} image updated`)
       return { error: '' }
     } catch (err) {
@@ -3701,7 +3771,7 @@ const list = Array.isArray(raw) ? raw : (raw?.data || [])
             {items.map((p) => (
               <article key={p.id} className="group overflow-hidden rounded-[22px] border border-[#E0E8F0] bg-white shadow-[0_20px_50px_-32px_rgba(15,58,107,0.25)] transition hover:-translate-y-0.5 hover:shadow-[0_26px_60px_-30px_rgba(15,58,107,0.4)]">
                 <button type="button" onClick={() => open(p)} className="relative block h-44 w-full overflow-hidden text-left" style={{ backgroundColor: BLUE }}>
-                  {p.heroImage && <img src={p.heroImage} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />}
+                  <CardBanner src={p.heroImage} name={p.name} />
                   <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-[11.5px] font-bold ${TONE[normStatus(p.status)]}`}>{normStatus(p.status)}</span>
                 </button>
                 <div className="p-5">
