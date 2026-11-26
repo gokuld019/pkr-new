@@ -5,7 +5,6 @@ export function middleware(req) {
   const token = req.cookies.get('pkr_admin_token')?.value;
 
   // 1. ALWAYS allow the login page to load.
-  // We check if the path includes '/admin/login' to be completely safe.
   if (pathname.includes('/admin/login')) {
     // If they are already logged in (have a cookie), send them to the dashboard
     if (token) {
@@ -25,6 +24,7 @@ export function middleware(req) {
 }
 
 export const config = {
-  // This matcher ensures we ONLY run this on /admin routes, ignoring all CSS, JS, and images.
-  matcher: ['/admin/:path*'],
+  // NOTE: '/admin/:path*' does NOT match '/admin' (bare route).
+  // We must list '/admin' explicitly AND the wildcard for sub-routes.
+  matcher: ['/admin', '/admin/:path*'],
 };

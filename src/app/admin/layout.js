@@ -1,8 +1,8 @@
 'use client';
 /* eslint-disable @next/next/no-img-element */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Icon } from './ui';
 
 const NAV = [
@@ -212,11 +212,31 @@ position:fixed;inset:0;z-index:99999;display:flex;background:var(--bg);color:var
 
 export default function AdminLayout({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [status, setStatus] = useState('checking'); // 'checking' | 'authed' | 'guest'
+
   const path = (pathname || '').replace(/\/+$/, '');
   const isAuth = path === '/admin/login';
   const isOn = (href) => (href === '/admin' ? path === '/admin' : path.startsWith(href));
   const current = NAV.find((n) => isOn(n.href));
+
+  // Client-side guard: verifies the token on every route change.
+  // Middleware already enforces this server-side; this is a safety net
+  // so the dashboard can never flash before a redirect.
+  useEffect(() => {
+    if (isAuth) {
+      setStatus('guest');
+      return;
+    }
+    const token = localStorage.getItem('pkr_admin_token');
+    if (!token) {
+      setStatus('guest');
+      router.replace('/admin/login');
+    } else {
+      setStatus('authed');
+    }
+  }, [isAuth, router, path]);
 
   const logout = () => {
     // 1. Clear localStorage + sessionStorage
@@ -235,59 +255,73 @@ export default function AdminLayout({ children }) {
     window.location.href = '/admin/login';
   };
 
+  // Login page: render immediately, no shell
+  if (isAuth) {
+    return (
+      <div className="adm">
+        <style dangerouslySetInnerHTML={{ __html: CSS }} />
+        <div className="a-auth">{children}</div>
+      </div>
+    );
+  }
+
+  // Block rendering until auth state is known (or while redirecting)
+  if (status === 'checking' || status === 'guest') {
+    return (
+      <div className="adm">
+        <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      </div>
+    );
+  }
+
+  // status === 'authed' — safe to render the dashboard
   return (
     <div className="adm">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      {isAuth ? (
-        <div className="a-auth">{children}</div>
-      ) : (
-        <>
-          <div className={`a-backdrop ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
-          <aside className={`a-side ${open ? 'open' : ''}`}>
-            <div className="a-brand">
-              <img src="/pkr-logo.webp" alt="PKR Estates" className="a-logo" />
-              <span>Admin panel</span>
-            </div>
-            <nav className="a-nav">
-              {NAV.map((n) => {
-                const on = isOn(n.href);
-                return (
-                  <Link key={n.href} href={n.href} className={on ? 'on' : ''} onClick={() => setOpen(false)}>
-                    <Icon name={n.icon} /> {n.label}
-                  </Link>
-                );
-              })}
-            </nav>
-            <button type="button" className="a-logout" onClick={logout}>
-              <Icon name="logout" /> Log out
-            </button>
-          </aside>
+      <div className={`a-backdrop ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
+      <aside className={`a-side ${open ? 'open' : ''}`}>
+        <div className="a-brand">
+          <img src="/pkr-logo.webp" alt="PKR Estates" className="a-logo" />
+          <span>Admin panel</span>
+        </div>
+        <nav className="a-nav">
+          {NAV.map((n) => {
+            const on = isOn(n.href);
+            return (
+              <Link key={n.href} href={n.href} className={on ? 'on' : ''} onClick={() => setOpen(false)}>
+                <Icon name={n.icon} /> {n.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <button type="button" className="a-logout" onClick={logout}>
+          <Icon name="logout" /> Log out
+        </button>
+      </aside>
 
-          <div className="a-main">
-            <header className="a-top">
-              <button className="a-icon a-burger" onClick={() => setOpen(true)} aria-label="Open menu">
-                <Icon name="menu" />
-              </button>
-              <span className="a-top-title">{current?.label || 'Admin'}</span>
-              <div className="a-top-right">
-                <a className="a-view" href="/" target="_blank" rel="noreferrer">
-                  <Icon name="external" size={16} /> <span>View website</span>
-                </a>
-                <div className="a-user">
-                  <div className="a-avatar">A</div>
-                  <div>
-                    Admin
-                    <small>PKR Estates</small>
-                  </div>
-                </div>
+      <div className="a-main">
+        <header className="a-top">
+          <button className="a-icon a-burger" onClick={() => setOpen(true)} aria-label="Open menu">
+            <Icon name="menu" />
+          </button>
+          <span className="a-top-title">{current?.label || 'Admin'}</span>
+          <div className="a-top-right">
+            <a className="a-view" href="/" target="_blank" rel="noreferrer">
+              <Icon name="external" size={16} /> <span>View website</span>
+            </a>
+            <div className="a-user">
+              <div className="a-avatar">A</div>
+              <div>
+                Admin
+                <small>PKR Estates</small>
               </div>
-            </header>
-            <main className="a-content">
-              <div className="a-wrap">{children}</div>
-            </main>
+            </div>
           </div>
-        </>
-      )}
+        </header>
+        <main className="a-content">
+          <div className="a-wrap">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }
