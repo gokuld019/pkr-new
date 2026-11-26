@@ -218,6 +218,23 @@ export default function AdminLayout({ children }) {
   const isOn = (href) => (href === '/admin' ? path === '/admin' : path.startsWith(href));
   const current = NAV.find((n) => isOn(n.href));
 
+  const logout = () => {
+    // 1. Clear localStorage + sessionStorage
+    try {
+      ['pkr_admin_token', 'pkr_admin_user', 'admin_token', 'token', 'access_token'].forEach((k) => {
+        localStorage.removeItem(k);
+        sessionStorage.removeItem(k);
+      });
+    } catch {}
+
+    // 2. Clear the cookie (path must match the one used at login: path=/)
+    document.cookie = 'pkr_admin_token=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'pkr_admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+
+    // 3. Hard redirect so the middleware re-runs with no cookie
+    window.location.href = '/admin/login';
+  };
+
   return (
     <div className="adm">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -241,10 +258,9 @@ export default function AdminLayout({ children }) {
                 );
               })}
             </nav>
-            {/* TODO: API - clear the auth cookie before redirecting */}
-            <Link href="/admin/login" className="a-logout">
+            <button type="button" className="a-logout" onClick={logout}>
               <Icon name="logout" /> Log out
-            </Link>
+            </button>
           </aside>
 
           <div className="a-main">

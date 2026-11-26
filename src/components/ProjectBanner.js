@@ -14,6 +14,12 @@ import {
   Fence, Navigation, Coins, Home, Phone, Navigation2, Move3d, Compass, RefreshCw,
   Send, Check, AlertTriangle, MapPinned, ParkingSquare, Expand, Grid3x3, ChevronDown, ChevronUp,
   ExternalLink, Images,
+  // ---- extra icons for keyword matching ----
+  Dumbbell, Utensils, Film, Music, BookOpen, Briefcase, Wifi, Video, Flower2,
+  Footprints, Droplets, Lightbulb, Wind, Flame, Lock, Trophy, Activity, Armchair, DoorOpen,
+  GraduationCap, Fuel, Pill, Stethoscope, Laptop, Route, Banknote, Store, Church,
+  Shirt, Bike, Mountain, PartyPopper, Percent, Rocket, Hammer,
+  Calendar, BadgeCheck, Warehouse,
 } from 'lucide-react'
 import { useProject } from '@/lib/projectApi'
 
@@ -41,6 +47,27 @@ function getReraPdf(project) {
   return project?.reraPdf || ''
 }
 
+
+/* ------------------------------------------------------------------ */
+/*  BROCHURE                                                           */
+/*  The API spells it "broucher" (project.broucher_url)                */
+/* ------------------------------------------------------------------ */
+const IMG_BASE = process.env.NEXT_PUBLIC_IMG_URL ? `${String(process.env.NEXT_PUBLIC_IMG_URL).replace(/\/+$/, '')}/` : ''
+
+// Any host + /storage/ -> your image base (also avoids http/https mixed content)
+function normaliseStorageUrl(u) {
+  if (!u) return ''
+  const s = String(u)
+  if (/^(data:|blob:)/.test(s)) return s
+  if (/^https?:/i.test(s)) return IMG_BASE ? s.replace(/^https?:\/\/[^/]+\/(?:backend\/)?storage\//i, IMG_BASE) : s
+  return `${IMG_BASE}${s.replace(/^\/+/, '').replace(/^(backend\/)?storage\//, '')}`
+}
+
+function pickBrochure(p) {
+  if (!p) return ''
+  const raw = p.brochureUrl || p.broucherUrl || p.broucher_url || p.brochure_url || p.broucher || p.brochure
+  return raw ? normaliseStorageUrl(raw) : ''
+}
 /* ------------------------------------------------------------------ */
 /*  WHATSAPP HELPER                                                    */
 /* ------------------------------------------------------------------ */
@@ -64,42 +91,96 @@ const DESKTOP_BANNER_W = 2463
 const DESKTOP_BANNER_H = 1000
 const DESKTOP_BANNER_MAX_H = 1000 // stops the banner getting huge on ultrawide screens
 
+/* ------------------------------------------------------------------ */
+/*  KEYWORD → ICON MATCHER                                             */
+/*  First matching rule wins, so order matters.                        */
+/* ------------------------------------------------------------------ */
+function matchIcon(label, rules, fallback) {
+  const l = String(label || '').toLowerCase()
+  const hit = rules.find(([pattern]) => pattern.test(l))
+  return hit ? hit[1] : fallback
+}
+
+/* ---------------- Landmarks ---------------- */
 const landmarkIconMap = {
   Schools: School, Hospitals: Hospital, 'Railway Station': TrainFront,
   'Bus Stand': Bus, Airport: Plane,
 }
 
+const LANDMARK_RULES = [
+  [/school|college|universit|academy|education|institute/, GraduationCap],
+  [/hospital|medical|clinic|health/, Hospital],
+  [/pharmac|chemist|medic(al|ine) store/, Pill],
+  [/metro|railway|rail|train|station|tram/, TrainFront],
+  [/bus|stand|terminus|depot/, Bus],
+  [/airport|aero/, Plane],
+  [/it park|tech park|software|office|sez|industrial|business/, Laptop],
+  [/highway|road|orr|bypass|expressway|nh\s?\d|junction|flyover/, Route],
+  [/mall|market|shopping|supermarket|store|bazaar/, ShoppingBag],
+  [/theatre|theater|cinema|multiplex|pvr/, Film],
+  [/restaurant|food|cafe|hotel|dining/, Utensils],
+  [/petrol|fuel|bunk/, Fuel],
+  [/bank|atm/, Banknote],
+  [/temple|church|mosque|worship|dargah/, Church],
+  [/beach|sea|lake|river/, Waves],
+  [/park|garden|green|forest/, Trees],
+  [/gym|stadium|sports|ground/, Dumbbell],
+  [/police|fire/, ShieldCheck],
+]
+
 function getLandmarkIcon(label) {
   if (landmarkIconMap[label]) return landmarkIconMap[label]
   const match = Object.entries(landmarkIconMap).find(([key]) => label?.includes(key))
-  return match ? match[1] : MapPin
+  if (match) return match[1]
+  return matchIcon(label, LANDMARK_RULES, MapPin)
 }
 
+/* ---------------- Quick facts ---------------- */
 const factIconMap = {
   type: Building2, units: Building2, floors: Layers, unitSize: Ruler,
   size: Maximize, price: Tag, rera: FileText, possession: CalendarCheck, approval: ShieldCheck,
 }
 
+const FACT_RULES = [
+  [/unit size|carpet|built.?up|super built/, Ruler],
+  [/rera/, FileText],
+  [/possession|handover|completion|ready/, CalendarCheck],
+  [/launch|start/, Rocket],
+  [/status|progress|construction/, Hammer],
+  [/approv|dtcp|cmda|legal|title|clear/, ShieldCheck],
+  [/price|cost|starting|rate|emi|₹/, Tag],
+  [/offer|discount|pre.?launch/, Percent],
+  [/floor|storey|story|level/, Layers],
+  [/block|tower|wing/, Warehouse],
+  [/bhk|bedroom|config|studio/, BedDouble],
+  [/parking/, ParkingSquare],
+  [/facing|direction|vastu/, Compass],
+  [/location|address|area|locality|city/, MapPin],
+  [/acre|land|plot|size|sq/, Maximize],
+  [/unit|home|apartment|flat|villa|residen/, Building2],
+  [/builder|developer|by\b/, BadgeCheck],
+  [/year|date|month/, Calendar],
+]
+
 function getFactIcon(label = '') {
-  const l = label.toLowerCase()
-  if (l.includes('unit size')) return Ruler
-  if (l.includes('size') || l.includes('acre')) return Maximize
-  if (l.includes('price')) return Tag
-  if (l.includes('floor')) return Layers
-  if (l.includes('rera')) return FileText
-  if (l.includes('possession')) return CalendarCheck
-  if (l.includes('approv')) return ShieldCheck
-  return Building2
+  return matchIcon(label, FACT_RULES, Building2)
 }
 
+/* ---------------- Master plan tabs ---------------- */
 function getMasterPlanIcon(id = '') {
-  const l = String(id).toLowerCase()
-  if (l.includes('park')) return ParkingSquare
-  if (l.includes('site')) return MapPinned
-  if (l.includes('master') || l.includes('layout')) return Grid3x3
-  return Compass
+  return matchIcon(id, [
+    [/park/, ParkingSquare],
+    [/site/, MapPinned],
+    [/master|layout/, Grid3x3],
+    [/ground|stilt/, Warehouse],
+    [/floor|typical/, Layers],
+    [/club|amenit/, Landmark],
+    [/landscape|garden|green/, Trees],
+    [/road|access/, Route],
+  ], Compass)
 }
 
+/* ---------------- Amenities ---------------- */
 const amenityIconMap = {
   'Swimming Pool': Waves, 'Club House': Landmark, "Children's Play Area": Baby,
   'Landscaped Gardens': Leaf, 'Walking Track': Users, 'Indoor Games': Gamepad2,
@@ -108,21 +189,52 @@ const amenityIconMap = {
   Elevator: ArrowUpDown, 'Sewage Treatment Plant (STP)': Recycle, 'Car Parking': Car,
 }
 
+const AMENITY_RULES = [
+  [/parking|garage|valet/, Car],
+  [/ev |charging|electric vehicle/, Zap],
+  [/pool|swim/, Waves],
+  [/gym|fitness|workout/, Dumbbell],
+  [/yoga|meditat|zen/, Activity],
+  [/club/, Landmark],
+  [/play|kids|child|creche|crèche/, Baby],
+  [/game|indoor|arcade|table tennis|billiard/, Gamepad2],
+  [/court|cricket|tennis|basket|badminton|sports|turf|stadium/, Trophy],
+  [/jogging|walking|track|trail/, Footprints],
+  [/cycl|bike/, Bike],
+  [/garden|landscap|lawn|flower/, Flower2],
+  [/park|tree|avenue|green|nature/, Trees],
+  [/terrace|roof|sky|deck|sunset/, Sun],
+  [/cctv|surveillance|camera/, Video],
+  [/security|gated|guard|intercom/, ShieldCheck],
+  [/access control|fingerprint|biometric|lock/, Lock],
+  [/fire|safety|sprinkler/, Flame],
+  [/elevator|lift/, ArrowUpDown],
+  [/stp|sewage|waste|recycl|compost/, Recycle],
+  [/rain|water|harvest|borewell|tank|supply/, Droplets],
+  [/solar|power|backup|generator|energy|light/, Lightbulb],
+  [/wifi|wi-fi|internet|broadband|fibre|fiber/, Wifi],
+  [/cafe|café|coffee|food court|restaurant|dining|kitchen/, Utensils],
+  [/cinema|theatre|theater|movie|screen/, Film],
+  [/music|amphitheat|stage/, Music],
+  [/library|reading|book/, BookOpen],
+  [/co.?work|business|office|conference/, Briefcase],
+  [/party|banquet|hall|event|function|community|multi.?purpose/, PartyPopper],
+  [/lounge|sit.?out|seating|gazebo|pergola/, Armchair],
+  [/shop|retail|store|supermarket|commercial/, Store],
+  [/temple|pooja|prayer|chapel/, Church],
+  [/spa|sauna|steam|jacuzzi|salon/, Sparkles],
+  [/clinic|medical|health|doctor/, Stethoscope],
+  [/pet|dog/, Heart],
+  [/hill|view|mount/, Mountain],
+  [/ventilat|air|breeze|cross/, Wind],
+  [/entrance|gate|arch|lobby|reception/, DoorOpen],
+  [/fence|compound|wall|boundary/, Fence],
+  [/road|street|pavement|drain/, Route],
+]
+
 function getAmenityIcon(label = '') {
   if (amenityIconMap[label]) return amenityIconMap[label]
-  const l = label.toLowerCase()
-  if (l.includes('parking')) return Car
-  if (l.includes('park') || l.includes('tree') || l.includes('garden')) return Trees
-  if (l.includes('shop')) return ShoppingBag
-  if (l.includes('elevator') || l.includes('lift')) return ArrowUpDown
-  if (l.includes('stp') || l.includes('sewage') || l.includes('recycle')) return Recycle
-  if (l.includes('security') || l.includes('cctv')) return ShieldCheck
-  if (l.includes('play')) return Baby
-  if (l.includes('walk')) return Users
-  if (l.includes('pool') || l.includes('swim')) return Waves
-  if (l.includes('club')) return Landmark
-  if (l.includes('game')) return Gamepad2
-  return Sparkles
+  return matchIcon(label, AMENITY_RULES, Sparkles)
 }
 
 const FLOOR_PLAN_HIGHLIGHTS = [
@@ -131,18 +243,32 @@ const FLOOR_PLAN_HIGHLIGHTS = [
   { icon: Layers, label: ['Optimal', 'Space Utilisation'] },
 ]
 
+/* ---------------- Rooms / plan details ---------------- */
+const ROOM_RULES = [
+  [/facing/, Compass],
+  [/sq\.?\s?ft|sqft|sq\.?\s?yd|area/, Ruler],
+  [/^floors?\b|^floor\s/, Layers],
+  [/bed|studio|master|guest/, BedDouble],
+  [/toilet|wc|powder/, Toilet],
+  [/bath|wash(?!ing)|shower/, Bath],
+  [/living|hall|lounge|drawing|family/, Sofa],
+  [/dining/, Utensils],
+  [/kitchen|pantry|cook/, CookingPot],
+  [/balcon|sit.?out|terrace|deck/, Fence],
+  [/pooja|prayer|puja/, Church],
+  [/study|work|office|library/, BookOpen],
+  [/utility|laundry|wash(ing)?\s?area|service/, Droplets],
+  [/store|storage/, Warehouse],
+  [/wardrobe|dress|walk.?in|closet/, Shirt],
+  [/foyer|entrance|lobby|entry|passage|corridor/, DoorOpen],
+  [/parking/, ParkingSquare],
+  [/garden|lawn|yard/, Flower2],
+  [/gym/, Dumbbell],
+  [/ventilat|window|light/, Sun],
+]
+
 function getRoomIcon(label = '') {
-  const l = label.toLowerCase()
-  if (l.includes('facing')) return Compass
-  if (l.includes('sq.ft') || l.includes('sq ft') || l.includes('sqft')) return Ruler
-  if (l.startsWith('floor')) return Layers
-  if (l.includes('bed') || l.includes('studio')) return BedDouble
-  if (l.includes('toilet')) return Toilet
-  if (l.includes('bath')) return Bath
-  if (l.includes('living') || l.includes('hall')) return Sofa
-  if (l.includes('kitchen')) return CookingPot
-  if (l.includes('balcon')) return Fence
-  return Sparkles
+  return matchIcon(label, ROOM_RULES, Sparkles)
 }
 
 function planMatchesTab(plan, label) {
@@ -360,6 +486,21 @@ const PLOT_FEATURES = [
   { icon: Coins, title: 'Competitive Pricing', text: ['Great value', 'for your investment'] },
   { icon: Leaf, title: 'Future Growth', text: ['A location with', 'lasting potential'] },
 ]
+
+/* ---------------- Plot feature columns (Clear Titles / Pricing / Growth …) ---------------- */
+const FEATURE_RULES = [
+  [/title|ownership|legal|clear|secure|trust|approv/, ShieldCheck],
+  [/pric|value|invest|afford|roi|return/, Coins],
+  [/growth|future|appreciat|potential|develop/, Leaf],
+  [/connect|location|access|proxim/, Route],
+  [/amenit|lifestyle|facilit/, Sparkles],
+  [/home|plot|land/, Home],
+  [/loan|bank|finance|emi/, Banknote],
+]
+
+function getFeatureIcon(title = '', index = 0) {
+  return matchIcon(title, FEATURE_RULES, PLOT_FEATURES[index % PLOT_FEATURES.length].icon)
+}
 
 // Without offer prices: Flat | Type | Facing & area | Price | action
 const UNIT_GRID_COLS = 'sm:grid-cols-[1fr_0.85fr_1.3fr_1fr_150px]'
@@ -1956,6 +2097,25 @@ function ProjectBannerView({ project }) {
 
   const bannerRef = useRef(null)
 
+  // Brochure: use what the project already carries, otherwise read it from the details API
+  const projectBrochure = pickBrochure(project)
+  const [fetchedBrochure, setFetchedBrochure] = useState('')
+
+  useEffect(() => {
+    if (projectBrochure || !project?.id) { setFetchedBrochure(''); return }
+    let cancelled = false
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/details/${project.id}`, { headers: { Accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const d = j?.data
+        const raw = d?.broucher_url || d?.brochure_url || d?.broucher || d?.brochure
+        if (!cancelled) setFetchedBrochure(normaliseStorageUrl(raw))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [projectBrochure, project?.id])
+
+  const brochureUrl = projectBrochure || fetchedBrochure
   const [tour360Open, setTour360Open] = useState(false)
   const [enquireOpen, setEnquireOpen] = useState(false)
   const [enquirePreset, setEnquirePreset] = useState('')
@@ -1967,8 +2127,8 @@ function ProjectBannerView({ project }) {
   }
 
   const openBrochure = () => {
-    if (!project?.brochureUrl) return
-    setEnquirePreset(project.name || ''); setEnquireContext('Brochure'); setEnquireBrochure(project.brochureUrl); setEnquireOpen(true)
+    if (!brochureUrl) return
+    setEnquirePreset(project.name || ''); setEnquireContext('Brochure'); setEnquireBrochure(brochureUrl); setEnquireOpen(true)
   }
 
   if (!project) return null
@@ -1977,8 +2137,8 @@ function ProjectBannerView({ project }) {
   const factsCount = quickFacts.length
   const lastRowStart = factsCount - (factsCount % 2 === 0 ? 2 : 1)
   const plotCtaImage = project.plotPricingCtaImage || '/plot.png'
-  const hasBrochure = Boolean(project.brochureUrl)
-  const reraPdfUrl = getReraPdf(project)
+  const hasBrochure = Boolean(brochureUrl)
+    const reraPdfUrl = getReraPdf(project)
 
   const panoramaSrc = project.tour360Image || project.tourImage
   const tourThumbnail = project.tourThumbnail || project.tourImage || project.tour360Image
@@ -3110,8 +3270,8 @@ function ProjectBannerView({ project }) {
                 <FadeUp delay={0.25}>
                   <div className="mb-6 grid grid-cols-3 sm:mb-10">
                     {(project.plotFeatures?.length ? project.plotFeatures : project.plotPricingIcons?.length ? project.plotPricingIcons.map((ic) => ({ title: ic.title, image: ic.image, text: [ic.desc || ic.description || ''] })) : PLOT_FEATURES).map((feature, i) => {
-                      // Always a lucide icon (Shield / Coins / Leaf) — uploaded images are ignored
-                      const FeatureIcon = feature.icon || PLOT_FEATURES[i % PLOT_FEATURES.length].icon
+                      // Always a lucide icon, matched to the feature title — uploaded images are ignored
+                      const FeatureIcon = feature.icon || getFeatureIcon(feature.title, i)
                       return (
                         <div key={`${feature.title}-${i}`} className={`flex flex-col items-center px-1.5 text-center sm:px-2 ${i > 0 ? 'border-l border-[#E0E8F0]' : ''}`}>
                           <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full sm:mb-4 sm:h-[62px] sm:w-[62px]" style={{ backgroundColor: LIGHT_BLUE }}>

@@ -324,7 +324,7 @@ export default function ContactPage() {
             <InfoRow
               icon="Clock"
               title="Working Hours"
-              lines={["Mon – Sat: 9:00 AM – 6:00 PM", "Sunday: By Appointment"]}
+              lines={["Mon – Sun: 9:30 AM – 6:00 PM", "Tuesday: Holiday"]}
               last
             />
           </div>
@@ -446,7 +446,7 @@ export default function ContactPage() {
             </div>
           ))}
 
-          <div className="flex justify-end sm:col-start-2 sm:justify-self-end">
+          {/* <div className="flex justify-end sm:col-start-2 sm:justify-self-end">
             <a
               href="#"
               className="flex items-center justify-end gap-2 text-[13px] font-semibold sm:text-sm"
@@ -454,7 +454,7 @@ export default function ContactPage() {
             >
               View All FAQs <Icon.Arrow />
             </a>
-          </div>
+          </div> */}
         </div>
       </section>
     </div>

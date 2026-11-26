@@ -148,7 +148,7 @@ export default function Footer() {
               >
                 Trusted banks,{" "}
                 <br className="hidden sm:block" />
-                <span className="text-[#2D3A46]/70">easier home loan approvals.</span>
+                <span className="text-[#2D3A46]/70">Easier Home Loan Approvals.</span>
               </h3>
             </motion.div>
 

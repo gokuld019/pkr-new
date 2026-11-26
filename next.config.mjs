@@ -2,14 +2,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Static export only for production builds. In `next dev`, dynamic routes like
-// /projects/[slug] are rendered on demand, so you don't hit the
-// "missing param in generateStaticParams()" error while developing.
 const isProd = process.env.NODE_ENV === 'production';
 
-// Storage base URL comes from .env.local (NEXT_PUBLIC_IMG_URL). Trailing slashes are
-// stripped so the rewrite destination is always built the same way.
 const IMG_URL = (
   process.env.NEXT_PUBLIC_IMG_URL || 'https://gurudev.pkrestates.com/backend/storage/'
 ).replace(/\/+$/, '');
@@ -18,25 +12,25 @@ const IMG_URL = (
 const nextConfig = {
   ...(isProd ? { output: 'export' } : {}),
   trailingSlash: true,
-
   reactCompiler: true,
-
   turbopack: {
     root: __dirname,
   },
-
   images: {
     unoptimized: true,
   },
-
   experimental: {
     inlineCss: true,
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+    // If you are proxying requests through Next.js middleware, this is required
+    middlewareClientMaxBodySize: '10mb',
   },
+  
+  // Note: `api.bodyParser` is for the Pages Router. It does not work in the App Router. 
+  // For App Router API routes, Next.js defaults to no limit, so 413 errors usually come from a reverse proxy (e.g., Nginx).
 
-  // Dev-only proxy so the 360° viewer (WebGL) can load images from the API
-  // server without hitting CORS. `rewrites()` is not supported together with
-  // `output: 'export'`, so it is only added outside production builds.
-  // For production, add the CORS header on the API server.
   ...(!isProd
     ? {
         async rewrites() {

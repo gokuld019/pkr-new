@@ -31,8 +31,15 @@ export default function LoginPage() {
         return;
       }
 
+      // 1. Save to localStorage (for your frontend components)
       localStorage.setItem('pkr_admin_token', data.access_token);
       localStorage.setItem('pkr_admin_user', JSON.stringify(data.user));
+      
+      // 2. Save to Cookie (CRITICAL: This allows the middleware to see you are logged in)
+      // Set to expire in 1 day (86400 seconds)
+      document.cookie = `pkr_admin_token=${data.access_token}; path=/; max-age=86400; SameSite=Lax`;
+
+      // 3. Navigate to the dashboard
       router.push('/admin');
     } catch {
       setError("Couldn't reach the server. Check your connection and try again.");

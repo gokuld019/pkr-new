@@ -1,13 +1,15 @@
 'use client'
 /* eslint-disable @next/next/no-img-element */
 // src/app/admin/projects/page.js
+import { PDFDocument } from 'pdf-lib'
+
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { figtree as figtree } from "../../../lib/fonts";
 import {
   Pencil, Plus, Trash2, X, Check, ArrowLeft, Upload, ExternalLink, Save, ImageIcon,
   Home, Sparkles, Images, LayoutGrid, Tag, Move3d, MapPin, Settings, Layers, Loader2, FileText,
-  ShieldCheck, Wallet, Sprout, ArrowUpRight, Timer,
+  ShieldCheck, Wallet, Sprout, ArrowUpRight, Timer, Download,
 } from 'lucide-react'
 import ProjectBanner from '@/components/ProjectBanner'
 
@@ -30,6 +32,11 @@ const DEBUG_PRICING = true // Set to true to see API responses in console
 const DEBUG_LOCATION = true // Set to true to see location API responses
 const DEBUG_COUNTDOWN = true // Set to true to see countdown API responses in console
 const SHOW_TAB_BAR = true // draws the pricing filter tabs above the table in the editor preview
+
+// Brochure API (the backend spells it "broucher")
+//   POST   /projects/broucher/upload/{id}   form-data: broucher = PDF file
+//   DELETE /projects/broucher/delete/{id}
+// The project data returns `broucher` (relative path) and the upload returns `broucher_url`.
 
 // Countdown API
 //   POST   /projects/countdown/save            { project_id, completion_date, is_active }
@@ -130,6 +137,21 @@ async function uploadFile(path, formData) {
   return fixUrls(json)
 }
 
+// Re-saves the PDF with object streams to shrink it. Falls back to the original file if anything fails.
+async function compressPdf(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true })
+    const pdfBytes = await pdfDoc.save({ useObjectStreams: true })
+    const compressedFile = new File([pdfBytes], file.name, { type: 'application/pdf' })
+    // only use the compressed version if it's actually smaller
+    return compressedFile.size < file.size ? compressedFile : file
+  } catch (err) {
+    console.error('PDF compression failed, using original file:', err)
+    return file
+  }
+}
+
 const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const uid = () => Date.now() + Math.floor(Math.random() * 100000)
 const TONE = { Ongoing: 'bg-[#E8F0F9] text-[#0F3A6B]', Completed: 'bg-emerald-50 text-emerald-700', Upcoming: 'bg-amber-50 text-amber-700' }
@@ -153,6 +175,17 @@ const toApiStatus = (f) => {
 const TYPES = ['Studio', '1 BHK', '2 BHK', '2 BHK + 2T', '3 BHK']
 const FACINGS = ['East', 'West', 'North', 'South', 'North-East', 'North-West', 'South-East', 'South-West']
 
+/* ---------------- Brochure ---------------- */
+const BROCHURE_KEYS = ['broucher_url', 'brochure_url', 'broucher', 'brochure']
+// does this API object carry a brochure field at all (even if it is null)?
+const hasBrochureKey = (p) => !!p && typeof p === 'object' && BROCHURE_KEYS.some((k) => k in p)
+// full URL of the saved brochure PDF, or '' when none
+const brochureFromApi = (p) => {
+  if (!p || typeof p !== 'object') return ''
+  const v = p.broucher_url || p.brochure_url || p.broucher || p.brochure
+  return v ? abs(v) : ''
+}
+
 /* ---------------- Overview ---------------- */
 const FACT_DEFS = [
   { key: 'propType', icon: 'type', label: 'Property type' },
@@ -168,6 +201,9 @@ const buildFacts = (f) =>
 
 function overviewFromApi(p = {}) {
   const o = {}
+  if (p.broucher || p.brochure || p.broucher_url || p.brochure_url) {
+    o.brochureUrl = abs(p.broucher || p.brochure || p.broucher_url || p.brochure_url)
+  }
   if (p.hero_subtitle) o.eyebrow = p.hero_subtitle
   if (p.hero_title) {
     const w = String(p.hero_title).trim().split(/\s+/)
@@ -190,6 +226,7 @@ function overviewFromApi(p = {}) {
   // This function is also run on `details`, where hero_image is the OVERVIEW image. Mapping
   // hero_image / thumbnail_image to heroImage here made the overview image replace the real
   // banner. Callers set heroImage, heroImageMobile and tourThumbnail from desktop_banner_url etc.
+  // The brochure is also set by the callers (brochureFromApi), because it lives on the project itself.
 
   const facts = buildFacts(o)
   if (facts.length) o.quickFacts = facts
@@ -511,7 +548,7 @@ function pricingFromApi(raw) {
 
   const tabsRaw = firstDef(head, ['filter_tabs', 'tabs'])
   if (tabsRaw !== undefined) {
-    // 🔑 FIX: Map to objects with `id` and `label` to satisfy ProjectBanner's `.map(tab => ... tab.id ...)`
+    // Map to objects with `id` and `label` to satisfy ProjectBanner's `.map(tab => ... tab.id ...)`
     out.plotPricingTabs = parseList(tabsRaw).map((t) => {
       const label = nameOf(t)
       return { id: label, label, name: label }
@@ -668,7 +705,7 @@ const BLANK = {
   locationHeading: ['', ''], locationLandmarks: [], locationDescription: '', locationCtaLabel: '', locationMapUrl: '', locationMapEmbed: '', locationMapImage: '', locDirty: false,
   metaTitle: '', metaDesc: '',
   callButtonText: '', callButtonNumber: '', propType: '', propSize: '', propUnits: '', propPrice: '', propFloors: '', reraNumber: '',
-  reraPdf: '', aboutImageFile: null, reraPdfFile: null, ovDirty: false,
+  reraPdf: '', aboutImageFile: null, reraPdfFile: null, brochureUrl: '', ovDirty: false,
   amenitiesIcons: [], amDirty: false, fpDirty: false, fpLoadError: '',
   plotPricingEyebrow: '', plotPricingHeading: [], plotPricingDescription: '', pricingIcons: BLANK_ICONS(),
   plotPricingTabs: [], plotPricingCtaHeading: [], plotPricingCtaText: '', plotPricingCtaImage: '', plotPricingCtaImageFile: null,
@@ -677,9 +714,11 @@ const BLANK = {
   countdownId: null, countdownDate: '', countdownActive: true, countdownDirty: false,
 }
 
+// NOTE: `brochureUrl` is NOT in the overview keys on purpose. Brochure upload / delete is saved
+// instantly, so "Discard changes" must not roll it back in the UI.
 const SECTIONS = [
   { id: 'banner', label: 'Banner', icon: ImageIcon, keys: ['heroImage', 'heroImageMobile', 'tourThumbnail'] },
-  { id: 'overview', label: 'Overview', icon: Home, dom: 'overview', keys: ['eyebrow', 'heading', 'description', 'aboutImage', 'aboutImageFile', 'brochureUrl', 'reraPdf', 'reraPdfFile', 'quickFacts', 'callButtonText', 'callButtonNumber', 'propType', 'propSize', 'propUnits', 'propPrice', 'propFloors', 'reraNumber', 'ovDirty'] },
+  { id: 'overview', label: 'Overview', icon: Home, dom: 'overview', keys: ['eyebrow', 'heading', 'description', 'aboutImage', 'aboutImageFile', 'reraPdf', 'reraPdfFile', 'quickFacts', 'callButtonText', 'callButtonNumber', 'propType', 'propSize', 'propUnits', 'propPrice', 'propFloors', 'reraNumber', 'ovDirty'] },
   { id: 'amenities', label: 'Amenities', icon: Sparkles, dom: 'amenities', keys: ['amenitiesEyebrow', 'amenitiesHeading', 'amenitiesDescription', 'amenitiesIcons', 'amDirty'] },
   { id: 'gallery', label: 'Gallery', icon: Images, dom: 'gallery', keys: ['galleryHeading', 'galleryImages'] },
   { id: 'floor-plans', label: 'Floor plans', icon: LayoutGrid, dom: 'floor-plans', keys: ['floorPlansEyebrow', 'floorPlansHeading', 'floorPlansDescription', 'floorPlanTabs', 'floorPlanBlocks', 'floorPlans', 'fpDirty'] },
@@ -698,7 +737,7 @@ const PH = (text) =>
     `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="100%" height="100%" fill="#E8F0F9"/><text x="50%" y="50%" fill="#0F3A6B" font-family="sans-serif" font-size="44" text-anchor="middle" dominant-baseline="middle">${text}</text></svg>`
   )}`
 
-// 🔑 ROBUST FIX: Handle arrays, strings, objects, null, undefined safely
+// Handle arrays, strings, objects, null, undefined safely
 const blankPair = (v) => {
   if (!v) return true
   if (typeof v === 'string') return !v.trim()
@@ -715,9 +754,11 @@ const splitPair = (str) => {
   return [w.slice(0, n).join(' '), w.slice(n).join(' ')]
 }
 
+const headingText = (v) => (Array.isArray(v) ? v.filter(Boolean).join(' ') : String(v ?? '').trim())
+
 function buildPreview(f) {
   const p = { ...f }
-  // 🔑 FIX: the API can send "active"; the banner only understands the 3 editor statuses
+  // the API can send "active"; the banner only understands the 3 editor statuses
   p.status = normStatus(f.status)
   p.slug = f.slug || slugify(f.name || 'project')
   p.projectId = f.id
@@ -746,6 +787,17 @@ function buildPreview(f) {
       reraNumber: '—',
     })
   }
+
+  // brochure: the banner may read any of these names (empty string = no button)
+  const brochure = f.brochureUrl || ''
+  p.brochureUrl = brochure
+  p.brochure = brochure
+  p.brochurePdf = brochure
+  p.brochure_pdf = brochure
+  p.brochure_url = brochure
+  p.broucher = brochure
+  p.broucherUrl = brochure
+  p.broucher_url = brochure
 
   /* ---- Amenities ---- */
   if (blankPair(f.amenitiesHeading)) p.amenitiesHeading = ['Everyday Comforts,', 'Exceptional Living']
@@ -846,7 +898,7 @@ function buildPreview(f) {
     return { id: `pricing-ic-${i}`, title, desc, description: desc, image: ic.image || '', icon: ic.image || '' }
   })
 
-  // 🔑 FIX: Always ensure tabs are objects `{ id, label, name }` so the ProjectBanner's `.map` doesn't error on missing `key`
+  // Always ensure tabs are objects `{ id, label, name }` so the ProjectBanner's `.map` doesn't error on missing `key`
   const rawTabs = f.plotPricingTabs?.length ? f.plotPricingTabs : ['All Units', 'Studio', '1 BHK', '2 BHK', '3 BHK', 'Shops', 'Block A', 'Block B']
   p.plotPricingTabs = rawTabs.map((t) => {
     const label = typeof t === 'string' ? t : (t.label || t.name || String(t))
@@ -1009,6 +1061,66 @@ function LocalFileField({ label, hint, accept, value, file, onPick, isImage = tr
         </div>
       </div>
       {hint && <span className="text-[11.5px] text-gray-400">{hint}</span>}
+    </div>
+  )
+}
+
+/* Brochure PDF: instant upload / remove through the brochure API (POST upload, DELETE delete) */
+function BrochureField({ value, onUpload, onRemove }) {
+  const ref = useRef(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState('')
+
+  const choose = async (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    if (f.type && f.type !== 'application/pdf') return setErr('Please choose a PDF file.')
+    setBusy(true); setErr(''); setOk('')
+    const r = await onUpload(f)
+    setBusy(false)
+    if (r?.error) return setErr(r.error)
+    setOk('Brochure uploaded.')
+  }
+
+  const remove = async () => {
+    if (!confirm('Delete the brochure? The “Download Brochure” button will disappear from the page.')) return
+    setBusy(true); setErr(''); setOk('')
+    const r = await onRemove()
+    setBusy(false)
+    if (r?.error) return setErr(r.error)
+    setOk('Brochure deleted.')
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[12px] font-semibold text-gray-600">Brochure PDF</span>
+      <div className="relative flex items-center gap-3 rounded-xl border border-dashed border-[#C9D8E8] bg-[#F7FAFD] p-2.5">
+        {busy && <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/60"><Loader2 className="h-5 w-5 animate-spin text-[#0F3A6B]" /></div>}
+        <div className="flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg" style={{ backgroundColor: BLUE }}>
+          <Download className="h-5 w-5" style={{ color: NAVY }} strokeWidth={1.6} />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="truncate text-[12px] text-gray-500">{value ? 'Brochure saved on the server' : 'No brochure uploaded'}</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" disabled={busy} onClick={() => ref.current?.click()} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-semibold hover:underline disabled:opacity-50" style={{ color: NAVY }}>
+              <Upload className="h-3.5 w-3.5" />{value ? 'Replace' : 'Upload'}
+            </button>
+            {value && <a href={value} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold hover:underline" style={{ color: NAVY }}>View current</a>}
+            {value && (
+              <a href={value} download className="inline-flex items-center gap-1.5 text-[12px] font-semibold hover:underline" style={{ color: NAVY }}>
+                <Download className="h-3.5 w-3.5" />Download
+              </a>
+            )}
+            {value && <button type="button" disabled={busy} onClick={remove} className="text-[12px] font-semibold text-red-500 hover:underline disabled:opacity-50">Remove</button>}
+          </div>
+          <input type="file" ref={ref} accept="application/pdf,.pdf" hidden onChange={choose} />
+        </div>
+      </div>
+      {err && <span role="alert" className="text-[11.5px] text-red-500">{err}</span>}
+      {ok && !err && <span role="status" className="text-[11.5px] text-emerald-700">{ok}</span>}
+      <span className="text-[11.5px] text-gray-400">Shows the “Download Brochure” button next to “Call Us”. Upload, replace and remove are saved instantly.</span>
     </div>
   )
 }
@@ -1821,6 +1933,7 @@ function PricingRow({ unit, onDelete }) {
   )
 }
 
+
 /* 360° image: instant Replace / Remove when saved on the server, local pick when not saved yet */
 function TourImageField({ label, hint, value, file, onPick, onReplaceNow, onRemoveNow }) {
   const ref = useRef(null)
@@ -2188,6 +2301,11 @@ function SectionFields({ id, form, set, actions = {} }) {
           {ov('callButtonText', 'Call button text', { placeholder: 'Call Us' })}
           {ov('callButtonNumber', 'Call button number', { placeholder: '9876543210' })}
         </div>
+        <BrochureField
+          value={form.brochureUrl}
+          onUpload={actions.uploadBrochure || (async () => ({ error: 'Not connected.' }))}
+          onRemove={actions.deleteBrochure || (async () => ({ error: 'Not connected.' }))}
+        />
         <LocalFileField label="Overview image" accept="image/*" isImage value={form.aboutImage} file={form.aboutImageFile}
           hint="Sent to the server when you click Save overview."
           onPick={(f) => setOv({ aboutImage: URL.createObjectURL(f), aboutImageFile: f })} />
@@ -2205,7 +2323,6 @@ function SectionFields({ id, form, set, actions = {} }) {
         <LocalFileField label="RERA certificate PDF" accept="application/pdf" isImage={false} value={form.reraPdf} file={form.reraPdfFile}
           hint="Opens from the RERA card. Sent when you click Save overview."
           onPick={(f) => setOv({ reraPdf: URL.createObjectURL(f), reraPdfFile: f })} />
-        {t('brochureUrl', 'Brochure PDF link', { placeholder: '/brochures/privana.pdf', hint: 'Shows the Download Brochure button (not saved to the server yet)' })}
       </>
     case 'amenities': {
       const setAm = (patch) => set({ ...patch, amDirty: true })
@@ -2472,7 +2589,12 @@ function SectionFields({ id, form, set, actions = {} }) {
       const landmarks = form.locationLandmarks || []
 
       return <>
-        {loc('locationHeading', 'Heading', { placeholder: 'Well Connected for a Brighter You' })}
+        <Pair
+          label="Heading"
+          value={Array.isArray(form.locationHeading) ? form.locationHeading : splitPair(form.locationHeading)}
+          onChange={(v) => setLoc({ locationHeading: v })}
+          hints={['Well Connected', 'for a Brighter You']}
+        />
         {loc('locationDescription', 'Description', { rows: 3, placeholder: 'Privana sits at the heart of a fast-growing neighbourhood…' })}
         {loc('locationCtaLabel', 'Button text', { placeholder: 'Get Directions' })}
         {loc('locationMapUrl', 'Google Maps embed (src URL or full <iframe> code)', { placeholder: 'https://www.google.com/maps/embed?pb=...', hint: 'Google Maps → Share → Embed a map → paste the code here. Short links (maps.app.goo.gl) can’t be embedded.' })}
@@ -2559,6 +2681,18 @@ function EditButton({ label, onClick, className = '' }) {
   )
 }
 
+/* "Download Brochure" button placed next to "Call Us" in the editor preview.
+   (The public ProjectBanner needs the same button, see the notes in the answer.) */
+function BrochureButton({ url }) {
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" download
+      style={{ background: GRAD, fontFamily: 'inherit' }}
+      className="inline-flex items-center gap-2 rounded-md border border-transparent px-5 py-3.5 text-[14px] font-semibold !text-white no-underline shadow-[0_10px_24px_-12px_rgba(15,58,107,0.8)] transition hover:-translate-y-px active:scale-[0.97]">
+      <Download className="h-4 w-4" strokeWidth={2} />Download Brochure
+    </a>
+  )
+}
+
 const ADMIN_HEADER_SELECTOR = 'header'
 
 function Editor({ form, setForm, onBack, onSave, onSaveOverview, onSaveAmenities, onSaveGalleryTitle, onSaveFloorPlansHeader, onSavePricingHeader, onSaveTour, onSaveLocation, onSaveCountdown, onSaveSettings, actions, error, loadingDetails }) {
@@ -2569,6 +2703,7 @@ function Editor({ form, setForm, onBack, onSave, onSaveOverview, onSaveAmenities
   const [drawerError, setDrawerError] = useState('')
   const [unitTab, setUnitTab] = useState('All Units')
   const [tabHost, setTabHost] = useState(null)
+  const [brochureHost, setBrochureHost] = useState(null)
   const snap = useRef(null)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
   const active = SECTIONS.find((s) => s.id === activeId)
@@ -2690,6 +2825,44 @@ function Editor({ form, setForm, onBack, onSave, onSaveOverview, onSaveAmenities
     if (host !== tabHost) setTabHost(host)
   })
 
+  // put the "Download Brochure" button next to "Call Us" in the overview preview.
+  // If ProjectBanner already renders its own brochure button, nothing is added.
+  useEffect(() => {
+    const sec = secEl('overview')
+    const existing = sec ? sec.querySelector('[data-brochure-host]') : null
+    if (!sec || !form.brochureUrl) {
+      if (existing) existing.remove()
+      if (brochureHost) setBrochureHost(null)
+      return
+    }
+    if (existing) { if (existing !== brochureHost) setBrochureHost(existing); return }
+
+    const clickable = [...sec.querySelectorAll('a,button')]
+    // the banner already draws its own brochure button
+    if (clickable.some((n) => /brochure/i.test(n.textContent || '') && !n.closest('[data-brochure-host]'))) {
+      if (brochureHost) setBrochureHost(null)
+      return
+    }
+    const callLabel = String(form.callButtonText || 'Call Us').trim().toLowerCase()
+    const callBtn = clickable.find((n) => {
+      if (n.closest('[data-edit-host]')) return false
+      const txt = (n.textContent || '').trim().toLowerCase()
+      return txt === callLabel || txt === 'call us' || /^call\b/.test(txt)
+    })
+    if (!callBtn || !callBtn.parentElement) { if (brochureHost) setBrochureHost(null); return }
+
+    const host = document.createElement('span')
+    host.setAttribute('data-brochure-host', '')
+    host.style.cssText = 'display:inline-flex;margin-left:12px;vertical-align:top'
+    callBtn.insertAdjacentElement('afterend', host)
+    setBrochureHost(host)
+  })
+
+  // clean up the injected host when the editor closes
+  useEffect(() => () => {
+    document.querySelectorAll('[data-brochure-host]').forEach((n) => n.remove())
+  }, [])
+
   useEffect(() => {
     SECTIONS.forEach((s) => { const el = s.dom && secEl(s.dom); if (el) el.style.outline = '' })
     const el = active?.dom && secEl(active.dom)
@@ -2731,6 +2904,8 @@ function Editor({ form, setForm, onBack, onSave, onSaveOverview, onSaveAmenities
         </div>,
         tabHost,
       )}
+
+      {brochureHost && form.brochureUrl && createPortal(<BrochureButton url={form.brochureUrl} />, brochureHost)}
 
       {SECTIONS.filter((s) => hosts[s.id]).map((s) => createPortal(<EditButton key={s.id} label={s.label} onClick={() => openSection(s.id)} />, hosts[s.id], s.id))}
 
@@ -2806,6 +2981,10 @@ export default function ProjectsPage() {
         heroImageMobile: d.mobile_banner_url || abs(d.mobile_banner),
         tourThumbnail: d.thumbnail_image_url || abs(d.thumbnail_image),
       }
+
+      // brochure lives on the project itself (`broucher`), sometimes also inside `details`
+      const brochureSrc = hasBrochureKey(d) ? d : hasBrochureKey(d.details) ? d.details : null
+      if (brochureSrc) base.brochureUrl = brochureFromApi(brochureSrc)
 
       console.log('BANNER DEBUG', {
         desktop_banner: d.desktop_banner,
@@ -3040,6 +3219,7 @@ export default function ProjectsPage() {
           heroImage: p.desktop_banner_url || abs(p.desktop_banner),
           heroImageMobile: p.mobile_banner_url || abs(p.mobile_banner),
           tourThumbnail: p.thumbnail_image_url || abs(p.thumbnail_image),
+          brochureUrl: brochureFromApi(p),
           slug: slugify(p.name || 'project'),
           ...overviewFromApi(p),
           ...countdownFromApi({ data: p }),
@@ -3114,6 +3294,42 @@ export default function ProjectsPage() {
       setForm((f) => ({ ...f, ...patch }))
       flash(json?.message || 'Overview saved')
       return { error: '', patch }
+    } catch (err) {
+      return { error: err.message }
+    }
+  }
+
+  /* ---------- BROCHURE actions (saved instantly) ---------- */
+  // POST /projects/broucher/upload/{id}  (form-data: broucher = PDF, compressed first)
+  const uploadBrochure = async (file) => {
+    if (!form?.id) return { error: 'Create the project first.' }
+    if (!file) return { error: 'Choose a PDF first.' }
+    const body = new FormData()
+    const fileToUpload = await compressPdf(file)
+    body.append('broucher', fileToUpload)
+    try {
+      const json = await uploadFile(`/projects/broucher/upload/${form.id}`, body)
+      const raw = json?.broucher_url || json?.data?.broucher_url || json?.data?.broucher
+      const url = raw ? bust(abs(raw)) : ''
+      if (!url) throw new Error('Server returned success but no brochure URL.')
+      setForm((f) => (f ? { ...f, brochureUrl: url } : f))
+      setItems((l) => l.map((p) => (String(p.id) === String(form.id) ? { ...p, brochureUrl: url } : p)))
+      flash(json?.message || 'Brochure uploaded')
+      return { error: '' }
+    } catch (err) {
+      return { error: err.message }
+    }
+  }
+
+  // DELETE /projects/broucher/delete/{id}
+  const deleteBrochure = async () => {
+    if (!form?.id) return { error: 'Create the project first.' }
+    try {
+      const { json } = await apiFetch(`/projects/broucher/delete/${form.id}`, { method: 'DELETE' })
+      setForm((f) => (f ? { ...f, brochureUrl: '' } : f))
+      setItems((l) => l.map((p) => (String(p.id) === String(form.id) ? { ...p, brochureUrl: '' } : p)))
+      flash(json?.message || 'Brochure deleted')
+      return { error: '' }
     } catch (err) {
       return { error: err.message }
     }
@@ -3360,7 +3576,7 @@ export default function ProjectsPage() {
     if (form.plotPricingCtaImageFile) body.append('cta_image', form.plotPricingCtaImageFile)
 
     body.append('validity_message', form.offerValidityText ?? '')
-    // 🔑 Send as plain strings (API expects strings)
+    // Send as plain strings (API expects strings)
     body.append('filter_tabs', JSON.stringify((form.plotPricingTabs || []).map(t => typeof t === 'string' ? t : (t.label || t.name || ''))))
 
     try {
@@ -3514,7 +3730,7 @@ export default function ProjectsPage() {
   const saveLocation = async () => {
     if (!form?.id) return { error: 'Create the project first.' }
     const body = new FormData()
-    body.append('title', (form.locationHeading || []).filter(Boolean).join(' '))
+    body.append('title', headingText(form.locationHeading))
     body.append('description', form.locationDescription ?? '')
     body.append('button_text', form.locationCtaLabel ?? '')
     // store the iframe-safe URL, so pasting <iframe ...> or a normal Maps link still works
@@ -3701,6 +3917,7 @@ export default function ProjectsPage() {
         heroImage: d.desktop_banner_url || abs(d.desktop_banner),
         heroImageMobile: d.mobile_banner_url || abs(d.mobile_banner),
         tourThumbnail: d.thumbnail_image_url || abs(d.thumbnail_image),
+        brochureUrl: brochureFromApi(d),
         ...overviewFromApi(d),
       }
 
@@ -3743,6 +3960,7 @@ export default function ProjectsPage() {
           editTourImage, deleteTourImage,
           addLocationLandmark, editLocationLandmark, deleteLocationLandmark,
           toggleCountdown, deleteCountdown,
+          uploadBrochure, deleteBrochure,
         }}
         error={error}
         loadingDetails={loadingDetails}
